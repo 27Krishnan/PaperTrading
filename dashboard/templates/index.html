@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Paper Trading</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;overflow:hidden;font-family:'Segoe UI',sans-serif;background:#0b0b14;color:#dde;}
+    ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:#111;}::-webkit-scrollbar-thumb{background:#333;border-radius:3px;}
+
+    /* ── Header ── */
+    .hdr{display:flex;align-items:center;justify-content:space-between;padding:8px 18px;background:#12121f;border-bottom:1px solid #1f1f35;flex-shrink:0;height:44px;}
+    .hdr-title{font-size:15px;font-weight:700;color:#00d4aa;}
+    .pills{display:flex;gap:8px;align-items:center;}
+    .pill{font-size:11px;padding:2px 9px;border-radius:12px;font-weight:600;border:1px solid #2a2a45;color:#555;background:#12121f;transition:.3s;}
+    .pill.ok{border-color:#00d4aa44;color:#00d4aa;background:#002e2222;}
+    .pill.warn{border-color:#ffd16644;color:#ffd166;background:#1e170022;}
+    .pill.err{border-color:#ff4d6d44;color:#ff4d6d;background:#2a001022;}
+    #srv-time{font-size:11px;color:#444;}
+
+    /* ── Tabs ── */
+    .tabs{display:flex;background:#0e0e1c;border-bottom:1px solid #1a1a30;flex-shrink:0;}
+    .tab{padding:9px 20px;font-size:13px;cursor:pointer;color:#555;border-bottom:2px solid transparent;transition:.2s;user-select:none;}
+    .tab:hover{color:#888;}
+    .tab.active{color:#00d4aa;border-bottom-color:#00d4aa;}
+
+    /* ── Layout ── */
+    .layout{display:flex;height:calc(100vh - 44px - 38px);overflow:hidden;}
+    .tab-pane{display:none;width:100%;height:100%;overflow-y:auto;padding:14px 16px;}
+    .tab-pane.active{display:block;}
+
+    /* ── Cards ── */
+    .cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px;}
+    .card{background:#12121f;border-radius:8px;padding:12px 14px;border:1px solid #1a1a30;}
+    .card .lbl{font-size:10px;color:#555;text-transform:uppercase;margin-bottom:4px;}
+    .card .val{font-size:20px;font-weight:700;}
+    .green{color:#00d4aa;} .red{color:#ff4d6d;} .blue{color:#6c9eff;} .yellow{color:#ffd166;}
+
+    /* ── Section ── */
+    .sec{background:#12121f;border-radius:8px;border:1px solid #1a1a30;margin-bottom:12px;overflow:hidden;}
+    .sec-hdr{padding:10px 14px;border-bottom:1px solid #1a1a30;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#00d4aa;}
+    .sec-body{padding:12px 14px;}
+    .badge{font-size:10px;background:#1a1a30;padding:1px 7px;border-radius:10px;color:#666;}
+
+    /* ── Signal input ── */
+    .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .drop-zone{border:2px dashed #252540;border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:.2s;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    .drop-zone:hover,.drop-zone.dragover{border-color:#00d4aa;}
+    .drop-zone input[type=file]{display:none;}
+    .drop-zone .ico{font-size:24px;margin-bottom:4px;}
+    .paste-box{width:100%;background:#0b0b14;border:1px solid #252540;color:#dde;border-radius:6px;padding:9px;font-size:13px;resize:vertical;min-height:80px;font-family:inherit;}
+    .paste-box:focus{outline:none;border-color:#00d4aa44;}
+    .opts-row{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+    .opts-row label{font-size:12px;color:#666;}
+    .opts-row input,.opts-row select{background:#0b0b14;border:1px solid #252540;color:#dde;border-radius:4px;padding:4px 8px;font-size:12px;width:80px;}
+    .btn{background:#00d4aa;color:#0b0b14;border:none;border-radius:6px;padding:6px 16px;font-weight:700;cursor:pointer;font-size:13px;}
+    .btn:hover{background:#00bfa5;}
+    .btn.sec-btn{background:#1a1a30;color:#dde;}
+    .btn.sec-btn:hover{background:#252545;}
+
+    /* ── Tables ── */
+    table{width:100%;border-collapse:collapse;font-size:12px;}
+    th{text-align:left;padding:7px 8px;border-bottom:1px solid #1a1a30;color:#555;font-weight:600;text-transform:uppercase;font-size:10px;white-space:nowrap;}
+    td{padding:7px 8px;border-bottom:1px solid #0e0e18;white-space:nowrap;}
+    tr:hover td{background:#141428;}
+    .sbadge{padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;}
+    .s-OPEN{background:#002e22;color:#00d4aa;} .s-PENDING{background:#1e1800;color:#ffd166;}
+    .s-CLOSED,.s-SESSION_END{background:#1a1a30;color:#555;}
+    .s-SL_HIT{background:#2a0010;color:#ff4d6d;} .s-TRAILING_SL_HIT{background:#180e30;color:#a78bfa;}
+    .s-TARGET_1_HIT,.s-TARGET_2_HIT,.s-TARGET_3_HIT{background:#002e22;color:#00d4aa;}
+    .buy{color:#00d4aa;font-weight:700;} .sell{color:#ff4d6d;font-weight:700;}
+    .pnl+{color:#00d4aa;} .pnl-{color:#ff4d6d;}
+    .tsl{color:#a78bfa;font-size:11px;}
+    .empty{color:#333;text-align:center;padding:20px;font-size:13px;}
+    .refresh-btn{background:none;border:1px solid #1a1a30;color:#444;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer;margin-left:auto;}
+    .refresh-btn:hover{border-color:#00d4aa;color:#00d4aa;}
+
+    /* ── Alert ── */
+    .alert{padding:9px 14px;border-radius:6px;margin-bottom:10px;font-size:13px;display:none;}
+    .alert.ok{background:#002e22;color:#00d4aa;border:1px solid #00d4aa33;}
+    .alert.err{background:#2a0010;color:#ff4d6d;border:1px solid #ff4d6d33;}
+
+    /* ═══════════════ OPTION CHAIN ═══════════════ */
+    .oc-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+    .oc-toolbar input,.oc-toolbar select{background:#12121f;border:1px solid #252540;color:#dde;border-radius:6px;padding:6px 10px;font-size:13px;}
+    .oc-toolbar input{width:160px;}
+    .oc-toolbar select{width:180px;}
+    .spot-info{margin-left:auto;font-size:13px;}
+    .spot-info span{color:#00d4aa;font-weight:700;font-size:16px;}
+
+    .oc-wrap{overflow-x:auto;}
+    .oc-table{width:100%;border-collapse:collapse;font-size:12px;}
+    .oc-table th{background:#0e0e1c;padding:6px 8px;text-align:center;color:#444;font-size:10px;text-transform:uppercase;border-bottom:1px solid #1a1a30;}
+    .oc-table td{padding:5px 6px;border-bottom:1px solid #0e0e16;text-align:right;}
+    .oc-table td.strike{text-align:center;font-weight:700;font-size:13px;color:#dde;background:#0e0e1c;}
+    .oc-table td.left{text-align:left;}
+    .oc-table tr.atm td{background:#1a1600;}
+    .oc-table tr.atm td.strike{background:#252000;color:#ffd166;}
+    .oc-table tr:hover td{background:#141420;}
+    .oc-table tr:hover td.strike{background:#1a1a28;}
+    .oc-table tr.atm:hover td{background:#1e1900;}
+
+    /* OI bar */
+    .oi-bar-wrap{display:flex;align-items:center;gap:4px;}
+    .oi-bar{height:6px;border-radius:3px;min-width:2px;max-width:60px;}
+    .oi-bar.ce{background:#ff4d6d;} .oi-bar.pe{background:#00d4aa;}
+
+    /* Trade buttons in chain */
+    .tbtns{display:flex;gap:3px;justify-content:center;}
+    .tbtn{padding:2px 7px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;transition:.15s;}
+    .tbtn.b{background:#002e22;color:#00d4aa;border:1px solid #00d4aa33;}
+    .tbtn.b:hover{background:#00d4aa;color:#0b0b14;}
+    .tbtn.s{background:#2a0010;color:#ff4d6d;border:1px solid #ff4d6d33;}
+    .tbtn.s:hover{background:#ff4d6d;color:#fff;}
+
+    .oc-status{text-align:center;padding:30px;color:#333;font-size:14px;}
+    .loader{display:inline-block;width:20px;height:20px;border:2px solid #1a1a30;border-top-color:#00d4aa;border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ═══════════════ TRADE MODAL ═══════════════ */
+    .modal-bg{position:fixed;inset:0;background:#000a;z-index:1000;display:none;align-items:center;justify-content:center;}
+    .modal-bg.show{display:flex;}
+    .modal{background:#12121f;border-radius:10px;border:1px solid #252540;padding:20px 22px;width:420px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+    .modal h3{color:#00d4aa;margin-bottom:14px;font-size:15px;}
+    .modal .action-toggle{display:flex;gap:0;margin-bottom:14px;border-radius:6px;overflow:hidden;border:1px solid #252540;}
+    .modal .action-toggle button{flex:1;padding:8px;border:none;background:#0b0b14;color:#555;font-weight:700;cursor:pointer;font-size:14px;transition:.2s;}
+    .modal .action-toggle button.active-buy{background:#002e22;color:#00d4aa;}
+    .modal .action-toggle button.active-sell{background:#2a0010;color:#ff4d6d;}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+    .form-row.full{grid-template-columns:1fr;}
+    .form-group{display:flex;flex-direction:column;gap:4px;}
+    .form-group label{font-size:11px;color:#666;text-transform:uppercase;}
+    .form-group input,.form-group select{background:#0b0b14;border:1px solid #252540;color:#dde;border-radius:5px;padding:7px 9px;font-size:13px;}
+    .form-group input:focus,.form-group select:focus{outline:none;border-color:#00d4aa55;}
+    .form-group .hint{font-size:10px;color:#444;}
+    .modal-footer{display:flex;gap:8px;margin-top:16px;}
+    .modal-footer .btn{flex:1;padding:9px;}
+    .modal-footer .cancel{background:#1a1a30;color:#888;}
+    .modal-footer .cancel:hover{background:#252540;}
+    .symbol-chip{display:inline-block;background:#1a1a30;color:#00d4aa;padding:3px 10px;border-radius:6px;font-size:13px;font-weight:700;margin-bottom:12px;}
+    .divider{border:none;border-top:1px solid #1a1a30;margin:12px 0;}
+
+    /* ═══════════════ SUB-TABS (Options / Futures) ═══════════════ */
+    .sub-tabs{display:flex;border-bottom:1px solid #1a1a30;margin-bottom:12px;flex-shrink:0;}
+    .sub-tab{padding:7px 18px;font-size:12px;cursor:pointer;color:#555;border-bottom:2px solid transparent;transition:.2s;user-select:none;}
+    .sub-tab:hover{color:#888;}
+    .sub-tab.active{color:#00d4aa;border-bottom-color:#00d4aa;}
+    .sub-pane{display:none;} .sub-pane.active{display:block;}
+
+    /* ═══════════════ FUTURES TABLE ═══════════════ */
+    .fut-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    @media(max-width:760px){.fut-grid{grid-template-columns:1fr;}}
+    .fut-sec{background:#12121f;border-radius:8px;border:1px solid #1a1a30;overflow:hidden;}
+    .fut-hdr{padding:8px 14px;border-bottom:1px solid #1a1a30;font-size:12px;font-weight:600;color:#00d4aa;display:flex;align-items:center;gap:8px;}
+    .fut-table{width:100%;border-collapse:collapse;font-size:12px;}
+    .fut-table th{padding:6px 10px;text-align:left;color:#444;font-size:10px;text-transform:uppercase;border-bottom:1px solid #1a1a30;background:#0e0e1c;}
+    .fut-table td{padding:7px 10px;border-bottom:1px solid #0e0e16;}
+    .fut-table tr:hover td{background:#141428;}
+    .fut-ltp{font-weight:700;font-size:13px;}
+    .fut-na{color:#333;font-size:11px;}
+
+    /* parsed preview */
+    #img-preview{margin-top:8px;display:none;}
+    #img-preview img{max-width:160px;border-radius:5px;border:1px solid #252540;}
+    #parsed-out{margin-top:6px;font-size:11px;color:#555;font-family:monospace;background:#0b0b14;padding:8px;border-radius:5px;max-height:80px;overflow-y:auto;}
+    /* paste overlay hint */
+    .paste-hint{font-size:11px;color:#00d4aa44;text-align:center;margin-top:4px;}
+    /* action buttons */
+    .act-btn{padding:2px 8px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;}
+    .act-btn.edit{background:#1a1a30;color:#6c9eff;border:1px solid #2a2a50;}
+    .act-btn.edit:hover{background:#2a2a50;}
+    .act-btn.del{background:#1a0010;color:#ff4d6d;border:1px solid #3a0020;}
+    .act-btn.del:hover{background:#ff4d6d;color:#fff;}
+    /* LTP live */
+    .ltp-cell{font-weight:700;font-size:12px;}
+    .ltp-up{color:#00d4aa;} .ltp-dn{color:#ff4d6d;} .ltp-neu{color:#888;}
+    /* modify modal */
+    .mmod{background:#12121f;border-radius:10px;border:1px solid #252540;padding:18px 20px;width:380px;max-width:95vw;}
+    .mmod h4{color:#6c9eff;margin-bottom:12px;font-size:14px;}
+    .mmod-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .mmod-grid .form-group input{font-size:12px;padding:5px 8px;}
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────── -->
+<div class="hdr">
+  <div class="hdr-title">📈 Paper Trading</div>
+  <div class="pills">
+    <span class="pill" id="p-angel">⏳ Angel</span>
+    <span class="pill" id="p-feed">⏳ Feed</span>
+    <span class="pill" id="p-nse">⏳ NSE</span>
+    <span class="pill" id="p-mcx">⏳ MCX</span>
+    <span class="pill" id="p-db">⏳ DB</span>
+    <span id="srv-time"></span>
+  </div>
+</div>
+
+<!-- ── Tabs ───────────────────────────────────── -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('signals')">📡 Signals</div>
+  <div class="tab" onclick="switchTab('chain')">📊 Option Chain</div>
+  <div class="tab" onclick="switchTab('positions')">💼 Positions</div>
+</div>
+
+<!-- ── Layout ─────────────────────────────────── -->
+<div class="layout">
+
+  <!-- ══ TAB 1: Signals ═══════════════════════ -->
+  <div class="tab-pane active" id="tab-signals">
+    <div id="alert-box" class="alert"></div>
+
+    <!-- Summary cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="lbl">Realized P&L</div>
+        <div class="val {% if total_pnl >= 0 %}green{% else %}red{% endif %}" id="card-realized">₹{{ "{:,.0f}".format(total_pnl) }}</div>
+      </div>
+      <div class="card">
+        <div class="lbl">Unrealized P&L</div>
+        <div class="val yellow" id="card-unrealized">—</div>
+      </div>
+      <div class="card" style="border-color:#00d4aa33">
+        <div class="lbl" style="color:#00d4aa88">Total P&L</div>
+        <div class="val green" id="card-total">₹{{ "{:,.0f}".format(total_pnl) }}</div>
+      </div>
+      <div class="card">
+        <div class="lbl">Trades</div>
+        <div class="val blue" id="card-trades">{{ total_trades }}</div>
+      </div>
+      <div class="card">
+        <div class="lbl">Win Rate</div>
+        <div class="val yellow" id="card-winrate">{% if total_trades > 0 %}{{ "{:.1f}".format(winning_trades/total_trades*100) }}%{% else %}—{% endif %}</div>
+      </div>
+      <div class="card">
+        <div class="lbl">Open Positions</div>
+        <div class="val blue" id="card-open">{{ open_trades|length }}</div>
+      </div>
+    </div>
+
+    <!-- Signal Input -->
+    <div class="sec">
+      <div class="sec-hdr">📤 Add Trade Signal</div>
+      <div class="sec-body">
+        <div class="sig-grid">
+          <!-- Image upload -->
+          <div>
+            <div class="drop-zone" id="drop-zone"
+                 ondragover="e=>{e.preventDefault();this.classList.add('dragover')}"
+                 ondragleave="this.classList.remove('dragover')"
+                 ondrop="onDrop(event)"
+                 onclick="document.getElementById('file-in').click()">
+              <div class="ico">📷</div>
+              <div style="font-size:13px;color:#555">Drop or click to upload Telegram screenshot</div>
+              <div style="font-size:11px;color:#333;margin-top:3px">PNG · JPG · WEBP</div>
+              <input type="file" id="file-in" accept="image/*" onchange="onFileSelect(this)"/>
+            </div>
+            <div class="paste-hint">📋 Ctrl+V anywhere to paste a copied screenshot</div>
+            <div id="img-preview">
+              <img id="preview-img" src="" alt="preview"/>
+              <div id="parsed-out">Click Submit to parse...</div>
+            </div>
+            <div class="opts-row">
+              <label>Lot</label><input type="number" id="img-lot" value="1" min="1" style="width:60px"/>
+              <label>Trail SL pts</label><input type="number" id="img-trail" placeholder="auto" style="width:80px"/>
+              <button class="btn" onclick="submitImage()">Submit Signal</button>
+            </div>
+          </div>
+
+          <!-- Text paste -->
+          <div>
+            <div style="font-size:11px;color:#555;margin-bottom:6px;">📋 Paste text signal (Ctrl+V)</div>
+            <textarea class="paste-box" id="txt-signal"
+              placeholder="#SENSEX 77400CE buy abv 213 tar 249 291 sl 181&#10;&#10;— or —&#10;&#10;BUY&#10;LAURUSLABS APR 1100PE&#10;ENTRY - 44&#10;SL - 36&#10;RISK - 7000"
+              onpaste="setTimeout(()=>previewText(),100)"
+              onkeydown="if(e.ctrlKey&&e.key==='Enter')submitText()"></textarea>
+            <div class="opts-row">
+              <label>Lot</label><input type="number" id="txt-lot" value="1" min="1" style="width:60px"/>
+              <label>Trail SL pts</label><input type="number" id="txt-trail" placeholder="auto" style="width:80px"/>
+              <button class="btn" onclick="submitText()">Parse & Trade</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Open Positions (mini) with live LTP -->
+    <div class="sec" id="open-pos-sec" {% if not open_trades %}style="display:none"{% endif %}>
+      <div class="sec-hdr">
+        🟢 Open Positions <span class="badge" id="open-cnt">{{ open_trades|length }}</span>
+        <button class="refresh-btn" onclick="refreshOpenPos()">↻ Live</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="open-pos-table">
+          <thead><tr>
+            <th>#</th><th>Symbol</th><th>Action</th>
+            <th>LTP</th><th style="color:#ffd166">Unrlz P&L</th><th>Entry</th><th>Entry Time</th><th>SL</th>
+            <th>Trail SL</th><th>TSL pts</th><th>T1</th><th>T2</th>
+            <th>Status</th><th>Act</th>
+          </tr></thead>
+          <tbody id="open-pos-body">
+          {% for t in open_trades %}
+          <tr id="row-{{ t.id }}">
+            <td>{{ t.id }}</td>
+            <td><strong>{{ t.symbol }}</strong><br><small style="color:#333">{{ t.exchange }}</small></td>
+            <td class="{{ 'buy' if t.action=='BUY' else 'sell' }}">{{ t.action }}</td>
+            <td class="ltp-cell ltp-neu" id="ltp-{{ t.id }}">—</td>
+            <td class="ltp-cell" id="pnl-{{ t.id }}" data-entry="{{ t.entry_price }}" data-qty="{{ t.quantity }}" data-action="{{ t.action }}">—</td>
+            <td>{{ t.entry_price }}</td>
+            <td style="font-size:10px;color:#6c9eff">{{ t.entry_triggered_at.strftime('%d %b %H:%M') if t.entry_triggered_at else '—' }}</td>
+            <td>{{ t.stop_loss }}</td>
+            <td class="tsl" id="tsl-{{ t.id }}">{{ "%.2f"|format(t.trailing_sl) if t.trailing_sl else "—" }}</td>
+            <td class="tsl">{{ t.trailing_sl_points or "—" }}</td>
+            <td>{{ t.target1 or "—" }}</td>
+            <td>{{ t.target2 or "—" }}</td>
+            <td><span class="sbadge s-{{ t.status }}" id="st-{{ t.id }}">{{ t.status }}</span></td>
+            <td style="white-space:nowrap">
+              <button class="act-btn edit" onclick="openModify({{ t.id }},{{ t.entry_price }},{{ t.stop_loss }},{{ t.trailing_sl or t.stop_loss }},{{ t.trailing_sl_points or 0 }},{{ t.target1 or 0 }},{{ t.target2 or 0 }})">✏️</button>
+              <button class="act-btn del" onclick="deleteTrade({{ t.id }})">✕</button>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Trade History -->
+    <div class="sec">
+      <div class="sec-hdr">
+        📋 Trade History <span class="badge">{{ closed_trades|length }}</span>
+        <button class="refresh-btn" onclick="location.reload()">↻</button>
+      </div>
+      {% if closed_trades %}
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr>
+            <th>#</th><th>Symbol</th><th>Action</th><th>Entry</th>
+            <th>Exit</th><th>Qty</th><th>Points</th><th>Realized P&L</th><th>Reason</th>
+            <th>Entry Time</th><th>Exit Time</th>
+          </tr></thead>
+          <tbody>
+          {% for t in closed_trades %}
+          {% set pts = ((t.exit_price or t.entry_price) - t.entry_price) * (1 if t.action=='BUY' else -1) %}
+          <tr>
+            <td>{{ t.id }}</td>
+            <td><strong>{{ t.symbol }}</strong></td>
+            <td class="{{ 'buy' if t.action=='BUY' else 'sell' }}">{{ t.action }}</td>
+            <td>{{ t.entry_price }}</td>
+            <td>{{ t.exit_price or "—" }}</td>
+            <td>{{ t.quantity }}</td>
+            <td class="{{ 'green' if pts>=0 else 'red' }}" style="font-size:11px">
+              {{ "{:+.2f}".format(pts) if t.exit_price else "—" }}
+            </td>
+            <td class="{{ 'green' if (t.gross_pnl or 0)>=0 else 'red' }}" style="font-weight:700">
+              {% if t.gross_pnl %}{{ "{:+,.0f}".format(t.gross_pnl) }}{% else %}—{% endif %}
+            </td>
+            <td><span class="sbadge s-{{ t.exit_reason or t.status }}">{{ t.exit_reason or t.status }}</span></td>
+            <td style="color:#6c9eff;font-size:11px;">{{ t.entry_triggered_at.strftime('%d %b %H:%M') if t.entry_triggered_at else "—" }}</td>
+            <td style="color:#ff4d6d;font-size:11px;">{{ t.closed_at.strftime('%d %b %H:%M') if t.closed_at else "—" }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty">No closed trades yet</div>
+      {% endif %}
+    </div>
+  </div><!-- /tab-signals -->
+
+  <!-- ══ TAB 2: Option Chain ════════════════════ -->
+  <div class="tab-pane" id="tab-chain">
+    <!-- Sub-tabs -->
+    <div class="sub-tabs">
+      <div class="sub-tab active" id="stab-options" onclick="switchSubTab('options')">📊 Options</div>
+      <div class="sub-tab" id="stab-futures" onclick="switchSubTab('futures')">🔮 Futures</div>
+    </div>
+
+    <!-- Sub-pane: Options -->
+    <div class="sub-pane active" id="subtab-options">
+      <div class="oc-toolbar">
+        <input type="text" id="oc-symbol" placeholder="NIFTY / BANKNIFTY / AAPL..." value="NIFTY"
+               onkeydown="if(event.key==='Enter')loadChain()"/>
+        <select id="oc-expiry" onchange="loadChain()"><option>— select expiry —</option></select>
+        <button class="btn" onclick="loadChain()">🔄 Load</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <span class="tbtn b" onclick="quickSym('NIFTY')">NIFTY</span>
+          <span class="tbtn b" onclick="quickSym('BANKNIFTY')">BANKNIFTY</span>
+          <span class="tbtn b" onclick="quickSym('FINNIFTY')">FINNIFTY</span>
+          <span class="tbtn b" onclick="quickSym('SENSEX')">SENSEX</span>
+        </div>
+        <div class="spot-info" id="spot-info" style="display:none">
+          Spot: <span id="spot-val">—</span> &nbsp; ATM: <span id="atm-val" style="color:#ffd166">—</span>
+        </div>
+      </div>
+      <div id="oc-container">
+        <div class="oc-status">Enter a symbol and click Load to fetch live option chain</div>
+      </div>
+    </div>
+
+    <!-- Sub-pane: Futures -->
+    <div class="sub-pane" id="subtab-futures">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:12px;color:#555;">Nearest-expiry futures · auto-refreshes every 30s</div>
+        <button class="btn sec-btn" onclick="loadFutures()">↻ Refresh</button>
+      </div>
+      <div id="futures-container">
+        <div class="oc-status">Click Refresh to load live futures LTPs</div>
+      </div>
+    </div>
+  </div><!-- /tab-chain -->
+
+  <!-- ══ TAB 3: Positions ═══════════════════════ -->
+  <div class="tab-pane" id="tab-positions">
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <button class="btn sec-btn" onclick="refreshPositions()">↻ Refresh</button>
+      <button class="btn" style="background:#2a0010;color:#ff4d6d;" onclick="closeAllIntraday()">Close All Intraday</button>
+    </div>
+    <div class="sec">
+      <div class="sec-hdr">🟢 Open Positions</div>
+      <div id="positions-body"><div class="empty">Loading...</div></div>
+    </div>
+    <div class="sec">
+      <div class="sec-hdr">📋 Recent Closed</div>
+      <div id="history-body"><div class="empty">Loading...</div></div>
+    </div>
+  </div>
+
+</div><!-- /layout -->
+
+<!-- ══ MODIFY MODAL ═════════════════════════════ -->
+<div class="modal-bg" id="modify-modal">
+  <div class="mmod">
+    <h4>✏️ Modify Trade <span id="modify-id" style="color:#555;font-size:12px"></span></h4>
+    <div class="mmod-grid">
+      <div class="form-group">
+        <label>Entry Price</label>
+        <input type="number" id="mod-entry" step="0.05"/>
+      </div>
+      <div class="form-group">
+        <label>Stop Loss</label>
+        <input type="number" id="mod-sl" step="0.05"/>
+      </div>
+      <div class="form-group">
+        <label>Trailing SL (current)</label>
+        <input type="number" id="mod-tsl" step="0.05"/>
+      </div>
+      <div class="form-group">
+        <label>Trailing SL Points</label>
+        <input type="number" id="mod-tslpts" step="0.5"/>
+      </div>
+      <div class="form-group">
+        <label>Target 1</label>
+        <input type="number" id="mod-t1" step="0.05"/>
+      </div>
+      <div class="form-group">
+        <label>Target 2</label>
+        <input type="number" id="mod-t2" step="0.05"/>
+      </div>
+    </div>
+    <div class="modal-footer" style="margin-top:12px">
+      <button class="btn cancel" onclick="document.getElementById('modify-modal').classList.remove('show')">Cancel</button>
+      <button class="btn" style="background:#6c9eff;color:#0b0b14" onclick="submitModify()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TRADE MODAL ══════════════════════════════ -->
+<div class="modal-bg" id="trade-modal">
+  <div class="modal">
+    <h3>🚀 Paper Trade</h3>
+    <div class="symbol-chip" id="modal-symbol">—</div>
+
+    <div class="modal .action-toggle" style="display:flex;gap:0;margin-bottom:14px;border-radius:6px;overflow:hidden;border:1px solid #252540;">
+      <button id="btn-buy" onclick="setAction('BUY')" class="active-buy" style="flex:1;padding:9px;border:none;background:#002e22;color:#00d4aa;font-weight:700;cursor:pointer;font-size:14px;">BUY</button>
+      <button id="btn-sell" onclick="setAction('SELL')" style="flex:1;padding:9px;border:none;background:#0b0b14;color:#555;font-weight:700;cursor:pointer;font-size:14px;">SELL</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Entry Price</label>
+        <input type="number" id="m-entry" step="0.05" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <label>Order Type</label>
+        <select id="m-type">
+          <option value="LIMIT">Limit</option>
+          <option value="ABOVE">Buy/Sell Above</option>
+          <option value="BELOW">Buy/Sell Below</option>
+          <option value="MARKET">Market</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Stop Loss</label>
+        <input type="number" id="m-sl" step="0.05" placeholder="0.00"/>
+      </div>
+      <div class="form-group">
+        <label>Trailing SL Points <span style="color:#555;font-size:10px">(optional)</span></label>
+        <input type="number" id="m-trail" step="0.5" placeholder="auto = SL distance"/>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Target 1</label>
+        <input type="number" id="m-t1" step="0.05" placeholder="optional"/>
+      </div>
+      <div class="form-group">
+        <label>Target 2</label>
+        <input type="number" id="m-t2" step="0.05" placeholder="optional"/>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Lots</label>
+        <input type="number" id="m-lots" value="1" min="1"/>
+      </div>
+      <div class="form-group">
+        <label>Qty (Lot × Size)</label>
+        <input type="number" id="m-qty" placeholder="auto" readonly style="color:#555;"/>
+        <div class="hint" id="m-qty-hint">Lot size: —</div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Trade Type</label>
+        <select id="m-ttype">
+          <option value="INTRADAY">Intraday</option>
+          <option value="POSITIONAL">Positional</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Exchange</label>
+        <input type="text" id="m-exchange" value="NFO" style="text-transform:uppercase;"/>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn" id="modal-submit-btn" onclick="submitModalTrade()">Execute Paper Trade</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Tab switching ──────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab')[['signals','chain','positions'].indexOf(name)].classList.add('active');
+  if (name === 'positions') refreshPositions();
+}
+
+// ── Alert ─────────────────────────────────────
+function showAlert(msg, type='ok') {
+  const b = document.getElementById('alert-box');
+  b.textContent = msg; b.className = 'alert ' + type; b.style.display = 'block';
+  setTimeout(() => b.style.display='none', 5000);
+}
+
+// ── Status pills ──────────────────────────────
+function setPill(id, text, cls) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = text; el.className = 'pill ' + cls; }
+}
+
+async function updateStatus() {
+  try {
+    const s = await fetch('/api/status').then(r => r.json());
+    setPill('p-angel', s.angel_one.connected ? '✅ Angel' : '❌ Angel', s.angel_one.connected ? 'ok' : 'err');
+    const f = s.market_feed;
+    setPill('p-feed',
+      f.state==='active' ? `✅ Feed(${f.subscriptions})` : f.state==='standby' ? '⏸ Feed' : '❌ Feed',
+      f.state==='active' ? 'ok' : f.state==='standby' ? 'warn' : 'err');
+    setPill('p-nse', s.market.nse_open ? '🟢 NSE' : '🔴 NSE', s.market.nse_open ? 'ok' : 'warn');
+    setPill('p-mcx', s.market.mcx_open ? '🟢 MCX' : '🔴 MCX', s.market.mcx_open ? 'ok' : 'warn');
+    setPill('p-db', s.database.ok ? '✅ DB' : '❌ DB', s.database.ok ? 'ok' : 'err');
+    document.getElementById('srv-time').textContent = s.server_time_ist;
+  } catch { }
+}
+updateStatus(); setInterval(updateStatus, 10000);
+
+// ── Global Ctrl+V paste (image anywhere on page) ──
+document.addEventListener('paste', (e) => {
+  const items = Array.from(e.clipboardData?.items || []);
+  const imgItem = items.find(i => i.type.startsWith('image/'));
+  if (!imgItem) return;
+  e.preventDefault();
+  selFile = imgItem.getAsFile();
+  showPreview(selFile);
+  // Switch to signals tab if not already there
+  if (!document.getElementById('tab-signals').classList.contains('active')) {
+    switchTab('signals');
+  }
+  showAlert('📋 Screenshot pasted! Click "Submit Signal" to parse.', 'ok');
+});
+
+// ── Signal Tab: Image upload ───────────────────
+let selFile = null;
+function onFileSelect(inp) { selFile = inp.files[0]; showPreview(selFile); }
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('dragover');
+  selFile = e.dataTransfer.files[0];
+  if (selFile) showPreview(selFile);
+}
+function showPreview(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('preview-img').src = ev.target.result;
+    document.getElementById('img-preview').style.display = 'block';
+    document.getElementById('parsed-out').textContent = 'Click "Submit Signal" to parse';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitImage() {
+  if (!selFile) { showAlert('Please select an image first', 'err'); return; }
+  const lot = document.getElementById('img-lot').value;
+  const trail = document.getElementById('img-trail').value;
+  let url = `/api/signal/image?lot_size=${lot}`;
+  if (trail) url += `&trailing_sl_points=${trail}`;
+  document.getElementById('parsed-out').textContent = '⏳ Parsing with OCR...';
+  const fd = new FormData(); fd.append('file', selFile);
+  try {
+    const res = await fetch(url, { method:'POST', body:fd });
+    const d = await res.json();
+    if (res.ok) {
+      document.getElementById('parsed-out').textContent = JSON.stringify(d.parsed_signal, null, 2);
+      showAlert('✅ ' + d.message);
+      setTimeout(() => location.reload(), 1800);
+    } else {
+      showAlert('❌ ' + d.detail, 'err');
+      document.getElementById('parsed-out').textContent = 'Error: ' + d.detail;
+    }
+  } catch { showAlert('Network error', 'err'); }
+}
+
+// ── Signal Tab: Text paste ─────────────────────
+function previewText() { /* just shows text already pasted */ }
+async function submitText() {
+  const text = document.getElementById('txt-signal').value.trim();
+  if (!text) { showAlert('Please paste a signal', 'err'); return; }
+  const lot = document.getElementById('txt-lot').value;
+  const trail = document.getElementById('txt-trail').value;
+  const body = { text, lot_size: +lot };
+  if (trail) body.trailing_sl_points = +trail;
+  try {
+    const res = await fetch('/api/signal/text', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const d = await res.json();
+    if (res.ok) { showAlert(`✅ Trade #${d.trade_id} created`); setTimeout(() => location.reload(), 1800); }
+    else showAlert('❌ ' + d.detail, 'err');
+  } catch { showAlert('Network error', 'err'); }
+}
+
+// ── Live LTP + P&L for open positions (every 5s) ────
+let _prevLtp = {};
+let _realizedPnl = {{ total_pnl }};  // from server-side render
+
+async function refreshOpenPos() {
+  try {
+    const trades = await fetch('/api/trades/open-ltp').then(r => r.json());
+    const sec = document.getElementById('open-pos-sec');
+    const cnt = document.getElementById('open-cnt');
+
+    if (!trades.length) {
+      if (sec) sec.style.display = 'none';
+      setCard('card-unrealized', '₹0', 'yellow');
+      setCard('card-open', '0', 'blue');
+      updateTotalCard(0);
+      return;
+    }
+    if (sec) sec.style.display = '';
+    if (cnt) cnt.textContent = trades.length;
+    setCard('card-open', trades.length, 'blue');
+
+    let totalUnrealized = 0;
+
+    trades.forEach(t => {
+      // ── LTP update ──
+      const ltpEl = document.getElementById('ltp-' + t.id);
+      if (ltpEl && t.ltp != null) {
+        const prev = _prevLtp[t.id];
+        const cls = prev == null ? 'ltp-neu' : t.ltp > prev ? 'ltp-up' : t.ltp < prev ? 'ltp-dn' : 'ltp-neu';
+        ltpEl.textContent = t.ltp.toFixed(2);
+        ltpEl.className = 'ltp-cell ' + cls;
+        _prevLtp[t.id] = t.ltp;
+      }
+
+      // ── Unrealized P&L per trade ──
+      const pnlEl = document.getElementById('pnl-' + t.id);
+      if (pnlEl && t.ltp != null) {
+        const entry = parseFloat(pnlEl.dataset.entry);
+        const qty   = parseInt(pnlEl.dataset.qty);
+        const action = pnlEl.dataset.action;
+        const mult = action === 'BUY' ? 1 : -1;
+        const pnl = mult * (t.ltp - entry) * qty;
+        totalUnrealized += pnl;
+        pnlEl.textContent = fmt(pnl);
+        pnlEl.className = 'ltp-cell ' + (pnl > 0 ? 'ltp-up' : pnl < 0 ? 'ltp-dn' : 'ltp-neu');
+      }
+
+      // ── Trailing SL ──
+      const tslEl = document.getElementById('tsl-' + t.id);
+      if (tslEl && t.trailing_sl) tslEl.textContent = t.trailing_sl.toFixed(2);
+
+      // ── Status badge ──
+      const stEl = document.getElementById('st-' + t.id);
+      if (stEl) { stEl.textContent = t.status; stEl.className = 'sbadge s-' + t.status; }
+    });
+
+    // ── Update summary cards ──
+    const unrealColor = totalUnrealized >= 0 ? 'green' : 'red';
+    setCard('card-unrealized', fmt(totalUnrealized), unrealColor);
+    updateTotalCard(totalUnrealized);
+
+  } catch(e) { console.error('LTP refresh error:', e); }
+}
+
+function fmt(n) {
+  const sign = n >= 0 ? '+' : '';
+  return sign + '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits: 0});
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', hour12:false})}`;
+}
+
+function setCard(id, val, color) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val;
+  el.className = 'val ' + color;
+}
+
+function updateTotalCard(unrealized) {
+  const total = _realizedPnl + unrealized;
+  const el = document.getElementById('card-total');
+  if (!el) return;
+  el.textContent = fmt(total);
+  el.className = 'val ' + (total >= 0 ? 'green' : 'red');
+}
+
+// Also fetch realized P&L live (for when trades close)
+async function refreshSummary() {
+  try {
+    const s = await fetch('/api/portfolio/summary').then(r => r.json());
+    _realizedPnl = s.realized_pnl;
+    setCard('card-realized', fmt(s.realized_pnl), s.realized_pnl >= 0 ? 'green' : 'red');
+    setCard('card-trades', s.total_trades, 'blue');
+    setCard('card-winrate', s.total_trades > 0 ? s.win_rate.toFixed(1) + '%' : '—', 'yellow');
+  } catch(e) {}
+}
+
+refreshOpenPos();
+refreshSummary();
+setInterval(refreshOpenPos, 5000);   // LTP + P&L every 5s
+setInterval(refreshSummary, 30000);  // Summary every 30s
+
+// ── Modify Modal ───────────────────────────────
+let _modifyId = null;
+function openModify(id, entry, sl, tsl, tslpts, t1, t2) {
+  _modifyId = id;
+  document.getElementById('modify-id').textContent = '#' + id;
+  document.getElementById('mod-entry').value  = entry  || '';
+  document.getElementById('mod-sl').value     = sl     || '';
+  document.getElementById('mod-tsl').value    = tsl    || '';
+  document.getElementById('mod-tslpts').value = tslpts || '';
+  document.getElementById('mod-t1').value     = t1     || '';
+  document.getElementById('mod-t2').value     = t2     || '';
+  document.getElementById('modify-modal').classList.add('show');
+}
+async function submitModify() {
+  if (!_modifyId) return;
+  const body = {};
+  const entry  = +document.getElementById('mod-entry').value;
+  const sl     = +document.getElementById('mod-sl').value;
+  const tsl    = +document.getElementById('mod-tsl').value;
+  const tslpts = +document.getElementById('mod-tslpts').value;
+  const t1     = +document.getElementById('mod-t1').value;
+  const t2     = +document.getElementById('mod-t2').value;
+  if (entry)  body.entry_price = entry;
+  if (sl)     body.stop_loss = sl;
+  if (tsl)    body.trailing_sl = tsl;
+  if (tslpts) body.trailing_sl_points = tslpts;
+  if (t1)     body.target1 = t1;
+  if (t2)     body.target2 = t2;
+
+  try {
+    const res = await fetch('/api/trades/' + _modifyId, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    const d = await res.json();
+    if (res.ok) {
+      document.getElementById('modify-modal').classList.remove('show');
+      showAlert('✅ Trade #' + _modifyId + ' updated');
+      setTimeout(() => location.reload(), 800);
+    } else {
+      showAlert('❌ ' + d.detail, 'err');
+    }
+  } catch { showAlert('Network error', 'err'); }
+}
+
+// ── Delete/Close Trade ─────────────────────────
+async function deleteTrade(id) {
+  const msg = 'Close/Cancel trade #' + id + '?\n• PENDING → Cancel\n• OPEN → Force close at current LTP';
+  if (!confirm(msg)) return;
+  try {
+    const res = await fetch('/api/trades/' + id, { method: 'DELETE' });
+    const d = await res.json();
+    if (res.ok) {
+      const row = document.getElementById('row-' + id);
+      if (row) row.remove();
+      showAlert('✅ Trade #' + id + ' removed');
+      refreshOpenPos();
+    } else {
+      showAlert('❌ ' + d.detail, 'err');
+    }
+  } catch { showAlert('Network error', 'err'); }
+}
+
+// Close modify modal on bg click
+document.getElementById('modify-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modify-modal'))
+    document.getElementById('modify-modal').classList.remove('show');
+});
+
+// ── Option Chain ───────────────────────────────
+let _chainData = null;
+
+function quickSym(sym) {
+  document.getElementById('oc-symbol').value = sym;
+  loadChain();
+}
+
+async function loadChain() {
+  const sym = document.getElementById('oc-symbol').value.trim().toUpperCase();
+  if (!sym) return;
+  const expiry = document.getElementById('oc-expiry').value;
+  let url = `/api/option-chain/${sym}`;
+  if (expiry && expiry !== '— select expiry —') url += `?expiry=${encodeURIComponent(expiry)}`;
+
+  document.getElementById('oc-container').innerHTML = '<div class="oc-status"><span class="loader"></span>Loading option chain...</div>';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const e = await res.json();
+      document.getElementById('oc-container').innerHTML = `<div class="oc-status" style="color:#ff4d6d">❌ ${e.detail}</div>`;
+      return;
+    }
+    _chainData = await res.json();
+
+    // Populate expiry dropdown
+    const sel = document.getElementById('oc-expiry');
+    sel.innerHTML = _chainData.expiries.map(e => `<option value="${e}" ${e===_chainData.expiry?'selected':''}>${e}</option>`).join('');
+
+    // Update spot info
+    document.getElementById('spot-info').style.display = 'flex';
+    document.getElementById('spot-val').textContent = _chainData.spot_price.toLocaleString('en-IN');
+    document.getElementById('atm-val').textContent = _chainData.atm_strike;
+
+    renderChain(_chainData);
+  } catch(e) {
+    document.getElementById('oc-container').innerHTML = `<div class="oc-status" style="color:#ff4d6d">❌ ${e.message}</div>`;
+  }
+}
+
+function renderChain(data) {
+  // Find max OI for bar scaling
+  let maxOI = 1;
+  data.chain.forEach(r => {
+    if (r.CE && r.CE.oi > maxOI) maxOI = r.CE.oi;
+    if (r.PE && r.PE.oi > maxOI) maxOI = r.PE.oi;
+  });
+
+  const rows = data.chain.map(r => {
+    const isAtm = r.strike === data.atm_strike;
+    const ce = r.CE || {};
+    const pe = r.PE || {};
+    const ceBar = Math.round((ce.oi||0)/maxOI * 60);
+    const peBar = Math.round((pe.oi||0)/maxOI * 60);
+    const ceChg = (ce.pct_change||0) >= 0 ? `<span class="green">+${ce.pct_change||0}%</span>` : `<span class="red">${ce.pct_change||0}%</span>`;
+    const peChg = (pe.pct_change||0) >= 0 ? `<span class="green">+${pe.pct_change||0}%</span>` : `<span class="red">${pe.pct_change||0}%</span>`;
+
+    return `<tr class="${isAtm?'atm':''}">
+      <td>
+        <div class="oi-bar-wrap">
+          <div class="oi-bar ce" style="width:${ceBar}px"></div>
+          <span>${fmtOI(ce.oi)}</span>
+        </div>
+      </td>
+      <td>${fmtOI(ce.volume||0)}</td>
+      <td>${ce.iv||'—'}</td>
+      <td style="color:${(ce.pct_change||0)>=0?'#00d4aa':'#ff4d6d'};font-weight:600">${ce.ltp||'—'}</td>
+      <td>${ceChg}</td>
+      <td class="tbtns">
+        <button class="tbtn b" onclick="openModal('BUY','${data.symbol}','${r.strike}CE','${data.expiry}',${ce.ltp||0},'CE',${data.lot_size},'${data.symbol}')">B</button>
+        <button class="tbtn s" onclick="openModal('SELL','${data.symbol}','${r.strike}CE','${data.expiry}',${ce.ltp||0},'CE',${data.lot_size},'${data.symbol}')">S</button>
+      </td>
+      <td class="strike">${r.strike}</td>
+      <td class="tbtns">
+        <button class="tbtn b" onclick="openModal('BUY','${data.symbol}','${r.strike}PE','${data.expiry}',${pe.ltp||0},'PE',${data.lot_size},'${data.symbol}')">B</button>
+        <button class="tbtn s" onclick="openModal('SELL','${data.symbol}','${r.strike}PE','${data.expiry}',${pe.ltp||0},'PE',${data.lot_size},'${data.symbol}')">S</button>
+      </td>
+      <td>${peChg}</td>
+      <td style="color:${(pe.pct_change||0)>=0?'#00d4aa':'#ff4d6d'};font-weight:600">${pe.ltp||'—'}</td>
+      <td>${pe.iv||'—'}</td>
+      <td>${fmtOI(pe.volume||0)}</td>
+      <td>
+        <div class="oi-bar-wrap" style="justify-content:flex-end">
+          <span>${fmtOI(pe.oi)}</span>
+          <div class="oi-bar pe" style="width:${peBar}px"></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('oc-container').innerHTML = `
+    <div class="oc-wrap">
+      <table class="oc-table">
+        <thead>
+          <tr>
+            <th colspan="5" style="text-align:center;color:#ff4d6d;background:#150a0a">CALLS</th>
+            <th colspan="2" style="text-align:center">TRADE</th>
+            <th style="text-align:center;background:#0e0e1c">STRIKE</th>
+            <th colspan="2" style="text-align:center">TRADE</th>
+            <th colspan="5" style="text-align:center;color:#00d4aa;background:#0a1510">PUTS</th>
+          </tr>
+          <tr>
+            <th>OI</th><th>Vol</th><th>IV</th><th>LTP</th><th>Chg%</th>
+            <th>CE</th><th>CE</th>
+            <th class="strike">Price</th>
+            <th>PE</th><th>PE</th>
+            <th>Chg%</th><th>LTP</th><th>IV</th><th>Vol</th><th>OI</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function fmtOI(n) {
+  if (!n) return '—';
+  if (n >= 1e7) return (n/1e7).toFixed(1)+'Cr';
+  if (n >= 1e5) return (n/1e5).toFixed(1)+'L';
+  if (n >= 1000) return (n/1000).toFixed(0)+'K';
+  return n;
+}
+
+// ── Trade Modal ────────────────────────────────
+let _modalAction = 'BUY';
+let _modalLotSize = 1;
+
+function openModal(action, underlying, optionSymbol, expiry, ltp, type, lotSize, exchange) {
+  _modalAction = action;
+  _modalLotSize = lotSize || 1;
+  document.getElementById('modal-symbol').textContent = `${underlying} ${optionSymbol} (${expiry})`;
+  document.getElementById('m-entry').value = ltp || '';
+  document.getElementById('m-sl').value = '';
+  document.getElementById('m-t1').value = '';
+  document.getElementById('m-t2').value = '';
+  document.getElementById('m-trail').value = '';
+  document.getElementById('m-lots').value = 1;
+  document.getElementById('m-qty').value = lotSize;
+  document.getElementById('m-qty-hint').textContent = `Lot size: ${lotSize}`;
+  document.getElementById('m-exchange').value = 'NFO';
+  document.getElementById('m-type').value = 'LIMIT';
+
+  // Store for submit
+  document.getElementById('trade-modal').dataset.symbol = underlying + optionSymbol;
+  document.getElementById('trade-modal').dataset.itype = type;
+
+  setAction(action);
+  document.getElementById('trade-modal').classList.add('show');
+
+  // Auto-update qty when lots change
+  document.getElementById('m-lots').oninput = () => {
+    document.getElementById('m-qty').value = +document.getElementById('m-lots').value * _modalLotSize;
+  };
+}
+
+function setAction(a) {
+  _modalAction = a;
+  const bb = document.getElementById('btn-buy');
+  const bs = document.getElementById('btn-sell');
+  if (a === 'BUY') {
+    bb.style.cssText='flex:1;padding:9px;border:none;background:#002e22;color:#00d4aa;font-weight:700;cursor:pointer;font-size:14px;';
+    bs.style.cssText='flex:1;padding:9px;border:none;background:#0b0b14;color:#555;font-weight:700;cursor:pointer;font-size:14px;';
+    document.getElementById('modal-submit-btn').style.background='#00d4aa';
+    document.getElementById('modal-submit-btn').style.color='#0b0b14';
+  } else {
+    bb.style.cssText='flex:1;padding:9px;border:none;background:#0b0b14;color:#555;font-weight:700;cursor:pointer;font-size:14px;';
+    bs.style.cssText='flex:1;padding:9px;border:none;background:#2a0010;color:#ff4d6d;font-weight:700;cursor:pointer;font-size:14px;';
+    document.getElementById('modal-submit-btn').style.background='#ff4d6d';
+    document.getElementById('modal-submit-btn').style.color='#fff';
+  }
+}
+
+function closeModal() {
+  document.getElementById('trade-modal').classList.remove('show');
+}
+
+async function submitModalTrade() {
+  const modal = document.getElementById('trade-modal');
+  const symbol = modal.dataset.symbol;
+  const itype = modal.dataset.itype;
+  const entry = +document.getElementById('m-entry').value;
+  const sl = +document.getElementById('m-sl').value;
+  const t1 = +document.getElementById('m-t1').value || null;
+  const t2 = +document.getElementById('m-t2').value || null;
+  const trail = +document.getElementById('m-trail').value || null;
+  const lots = +document.getElementById('m-lots').value;
+  const qty = lots * _modalLotSize;
+  const exchange = document.getElementById('m-exchange').value || 'NFO';
+  const orderType = document.getElementById('m-type').value;
+  const tradeType = document.getElementById('m-ttype').value;
+
+  if (!entry) { alert('Entry price is required'); return; }
+
+  const targets = [t1, t2].filter(Boolean);
+  const body = {
+    symbol, exchange,
+    instrument_type: itype,
+    action: _modalAction,
+    entry_price: entry,
+    stop_loss: sl,
+    targets,
+    quantity: qty,
+    lot_size: _modalLotSize,
+    trade_type: tradeType,
+    trailing_sl_points: trail,
+  };
+
+  // Override entry_type based on order type
+  body.entry_type = orderType;
+
+  try {
+    const res = await fetch('/api/trade/manual', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const d = await res.json();
+    if (res.ok) {
+      closeModal();
+      showAlert(`✅ Trade #${d.trade_id} created: ${_modalAction} ${symbol} @ ${entry}`);
+      switchTab('signals');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      alert('Error: ' + d.detail);
+    }
+  } catch(e) { alert('Network error: ' + e.message); }
+}
+
+// Close modal on bg click
+document.getElementById('trade-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('trade-modal')) closeModal();
+});
+
+// ── Positions Tab ──────────────────────────────
+async function refreshPositions() {
+  try {
+    const [open, closed] = await Promise.all([
+      fetch('/api/trades/open').then(r => r.json()),
+      fetch('/api/trades?status=CLOSED&limit=20').then(r => r.json()),
+    ]);
+
+    document.getElementById('positions-body').innerHTML = open.length ? `
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>#</th><th>Symbol</th><th>Action</th><th>Entry</th><th>Entry Time</th><th>SL</th><th>Trail SL</th><th>T1</th><th>T2</th><th>Status</th></tr></thead>
+        <tbody>${open.map(t => `<tr>
+          <td>${t.id}</td>
+          <td><strong>${t.symbol}</strong></td>
+          <td class="${t.action==='BUY'?'buy':'sell'}">${t.action}</td>
+          <td>${t.entry_price}</td>
+          <td style="font-size:11px;color:#6c9eff">${fmtTime(t.entry_triggered_at)}</td>
+          <td>${t.stop_loss||'—'}</td>
+          <td class="tsl">${t.trailing_sl ? t.trailing_sl.toFixed(2) : '—'}</td>
+          <td>${t.target1||'—'}</td>
+          <td>${t.target2||'—'}</td>
+          <td><span class="sbadge s-${t.status}">${t.status}</span></td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : '<div class="empty">No open positions</div>';
+
+    document.getElementById('history-body').innerHTML = closed.length ? `
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>#</th><th>Symbol</th><th>Action</th><th>Entry</th><th>Exit</th><th>Qty</th><th>P&L</th><th>Reason</th><th>Entry Time</th><th>Exit Time</th></tr></thead>
+        <tbody>${closed.map(t => `<tr>
+          <td>${t.id}</td>
+          <td><strong>${t.symbol}</strong></td>
+          <td class="${t.action==='BUY'?'buy':'sell'}">${t.action}</td>
+          <td>${t.entry_price}</td>
+          <td>${t.exit_price||'—'}</td>
+          <td>${t.quantity}</td>
+          <td class="${(t.gross_pnl||0)>=0?'green':'red'}">₹${(t.gross_pnl||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+          <td><span class="sbadge s-${t.exit_reason||t.status}">${t.exit_reason||t.status}</span></td>
+          <td style="font-size:11px;color:#6c9eff">${fmtTime(t.entry_triggered_at)}</td>
+          <td style="font-size:11px;color:#ff4d6d">${fmtDateTime(t.closed_at)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : '<div class="empty">No closed trades</div>';
+  } catch(e) { console.error(e); }
+}
+
+async function closeAllIntraday() {
+  if (!confirm('Close all intraday positions at current market price?')) return;
+  await fetch('/api/close-intraday', {method:'POST'});
+  showAlert('All intraday positions closed');
+  refreshPositions();
+}
+
+// Auto-refresh open positions every 15s if positions tab is active
+setInterval(() => {
+  if (document.getElementById('tab-positions').classList.contains('active')) refreshPositions();
+}, 15000);
+
+// ── Sub-tabs (Options / Futures) ───────────────
+function switchSubTab(name) {
+  ['options','futures'].forEach(n => {
+    document.getElementById('subtab-' + n).classList.toggle('active', n === name);
+    document.getElementById('stab-' + n).classList.toggle('active', n === name);
+  });
+  if (name === 'futures') loadFutures();
+}
+
+// ── Futures ────────────────────────────────────
+let _futuresTimer = null;
+
+async function loadFutures() {
+  const container = document.getElementById('futures-container');
+  container.innerHTML = '<div class="oc-status"><span class="loader"></span>Loading futures...</div>';
+  try {
+    const res = await fetch('/api/futures');
+    if (!res.ok) {
+      const e = await res.json();
+      container.innerHTML = `<div class="oc-status" style="color:#ff4d6d">❌ ${e.detail}</div>`;
+      return;
+    }
+    const data = await res.json();
+    renderFutures(data);
+  } catch(e) {
+    container.innerHTML = `<div class="oc-status" style="color:#ff4d6d">❌ ${e.message}</div>`;
+  }
+}
+
+function renderFutures(data) {
+  const nse = data.filter(f => f.category === 'NSE');
+  const mcx = data.filter(f => f.category === 'MCX');
+
+  function futRows(items) {
+    return items.map(f => {
+      const ltpHtml = f.ltp
+        ? `<span class="fut-ltp ltp-neu" id="fut-ltp-${f.name}">${f.ltp.toLocaleString('en-IN',{maximumFractionDigits:2})}</span>`
+        : `<span class="fut-na">—</span>`;
+      const btns = f.available
+        ? `<div class="tbtns">
+            <button class="tbtn b" onclick="openFutModal('BUY','${f.name}','${f.symbol}','${f.exchange}',${f.ltp||0},${f.lot_size})">B</button>
+            <button class="tbtn s" onclick="openFutModal('SELL','${f.name}','${f.symbol}','${f.exchange}',${f.ltp||0},${f.lot_size})">S</button>
+           </div>`
+        : '<span class="fut-na">N/A</span>';
+      return `<tr>
+        <td style="font-weight:700;color:#dde">${f.display}</td>
+        <td style="color:#444;font-size:11px">${f.expiry||'—'}</td>
+        <td>${ltpHtml}</td>
+        <td style="color:#555;font-size:11px">${f.lot_size}</td>
+        <td>${btns}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('futures-container').innerHTML = `
+    <div class="fut-grid">
+      <div class="fut-sec">
+        <div class="fut-hdr">📈 NSE Index Futures <span class="badge">NFO</span></div>
+        <table class="fut-table">
+          <thead><tr><th>Instrument</th><th>Expiry</th><th>LTP</th><th>Lot</th><th>Trade</th></tr></thead>
+          <tbody>${futRows(nse)}</tbody>
+        </table>
+      </div>
+      <div class="fut-sec">
+        <div class="fut-hdr">🏭 MCX Commodity Futures <span class="badge">MCX</span></div>
+        <table class="fut-table">
+          <thead><tr><th>Instrument</th><th>Expiry</th><th>LTP</th><th>Lot</th><th>Trade</th></tr></thead>
+          <tbody>${futRows(mcx)}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function openFutModal(action, name, symbol, exchange, ltp, lotSize) {
+  _modalAction = action;
+  _modalLotSize = lotSize || 1;
+  document.getElementById('modal-symbol').textContent = `${name} FUT (${exchange})`;
+  document.getElementById('m-entry').value = ltp || '';
+  document.getElementById('m-sl').value = '';
+  document.getElementById('m-t1').value = '';
+  document.getElementById('m-t2').value = '';
+  document.getElementById('m-trail').value = '';
+  document.getElementById('m-lots').value = 1;
+  document.getElementById('m-qty').value = lotSize;
+  document.getElementById('m-qty-hint').textContent = `Lot size: ${lotSize}`;
+  document.getElementById('m-exchange').value = exchange;
+  document.getElementById('m-type').value = 'LIMIT';
+  document.getElementById('trade-modal').dataset.symbol = symbol;
+  document.getElementById('trade-modal').dataset.itype = 'FUT';
+  document.getElementById('m-lots').oninput = () => {
+    document.getElementById('m-qty').value = +document.getElementById('m-lots').value * _modalLotSize;
+  };
+  setAction(action);
+  document.getElementById('trade-modal').classList.add('show');
+}
+
+// Auto-refresh futures when sub-tab is active
+setInterval(() => {
+  if (document.getElementById('subtab-futures')?.classList.contains('active')) loadFutures();
+}, 30000);
+</script>
+</body>
+</html>
