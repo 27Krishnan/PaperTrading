@@ -249,7 +249,7 @@
   <div class="tab"         onclick="switchTab('positions')">💼 Positions</div>
   <div class="tab"         onclick="switchTab('owners')">👥 Owners</div>
   <div class="tab"         onclick="switchTab('pnl')">📊 P&amp;L Report</div>
-  <div class="tab"         onclick="switchTab('basket')">🧺 Basket</div>
+  <div class="tab"         onclick="switchTab('pnl')">📊 P&amp;L Report</div>
 </div>
 
 <!-- ── Layout ─────────────────────────────────── -->
@@ -433,7 +433,8 @@
   </div><!-- /tab-signals -->
 
   <!-- ══ TAB 2: Option Chain ════════════════════ -->
-  <div class="tab-pane" id="tab-chain">
+  <div class="tab-pane" id="tab-chain" style="position:relative">
+
     <div class="sub-tabs">
       <div class="sub-tab active" id="stab-options" onclick="switchSubTab('options')">📊 Options</div>
       <div class="sub-tab" id="stab-futures" onclick="switchSubTab('futures')">🔮 Futures</div>
@@ -451,6 +452,10 @@
           <span class="tbtn b" onclick="quickSym('FINNIFTY')">FINNIFTY</span>
           <span class="tbtn b" onclick="quickSym('SENSEX')">SENSEX</span>
         </div>
+        <label class="switch-wrap" style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;margin-left:10px;background:#1a1030;padding:4px 10px;border-radius:20px;border:1px solid #a78bfa33">
+          <input type="checkbox" id="oc-basket-mode" onchange="toggleBasketMode()" style="width:auto;margin:0">
+          <span style="font-size:11px;color:#a78bfa;font-weight:700">🧺 Basket Mode</span>
+        </label>
         <div class="spot-info" id="spot-info" style="display:none">
           Spot: <span id="spot-val">—</span> &nbsp; ATM: <span id="atm-val" style="color:#ffd166">—</span>
         </div>
@@ -468,6 +473,28 @@
       <div id="futures-container">
         <div class="oc-status">Click Refresh to load live futures LTPs</div>
       </div>
+    </div>
+    </div>
+
+    <!-- Basket bar (sticks to bottom of chain tab) -->
+    <div id="oc-basket-bar" style="display:none;position:sticky;bottom:-14px;left:-16px;right:-16px;background:#1a1030;border-top:1px solid #a78bfa55;padding:10px 20px;display:none;align-items:center;gap:15px;z-index:100;margin:14px -16px -14px -16px;box-shadow:0 -5px 15px #0008">
+       <div style="flex:1;display:flex;align-items:center;gap:10px;">
+         <span style="color:#a78bfa;font-weight:700;font-size:14px">🧺 Basket</span>
+         <span id="oc-basket-count" style="font-size:12px;color:#dde">0 legs</span>
+         <div id="oc-basket-preview" style="display:flex;gap:5px;overflow-x:auto;max-width:400px;scrollbar-width:none"></div>
+       </div>
+       <div style="display:flex;gap:10px;align-items:center;">
+         <select id="oc-basket-owner" style="background:#0b0b14;border:1px solid #252540;color:#dde;border-radius:4px;padding:4px 8px;font-size:11px;width:120px">
+           <option value="">— Owner —</option>
+           {% for o in owners %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+         </select>
+         <select id="oc-basket-strategy" style="background:#0b0b14;border:1px solid #252540;color:#dde;border-radius:4px;padding:4px 8px;font-size:11px;width:120px">
+           <option value="">— Strategy —</option>
+           {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+         </select>
+         <button class="btn sec-btn" style="font-size:11px;padding:4px 10px" onclick="clearBasket()">🗑 Clear</button>
+         <button class="btn" style="background:#a78bfa;color:#0b0b14;font-size:12px" onclick="executeBasket()">⚡ Execute All</button>
+       </div>
     </div>
   </div><!-- /tab-chain -->
 
@@ -1758,141 +1785,76 @@ function addChainLegToBasket(symbol, itype, exchange, ltp, lotSize) {
     trade_type: 'INTRADAY', trailing_sl_points: null,
     owner_id: null, strategy: null,
   });
-  renderBasketLegs();
-  switchTab('basket');
+  renderBasketBar();
   showBasketAlert(`➕ ${symbol} (${itype}) added to basket`);
 }
 
-function addManualLeg() {
-  const sym    = document.getElementById('bleg-sym').value.trim().toUpperCase();
-  const action = document.getElementById('bleg-action').value;
-  const itype  = document.getElementById('bleg-itype').value;
-  const entry  = +document.getElementById('bleg-entry').value;
-  const sl     = +document.getElementById('bleg-sl').value || 0;
-  const t1     = +document.getElementById('bleg-t1').value || null;
-  const lots   = +document.getElementById('bleg-lots').value || 1;
-  const exch   = document.getElementById('bleg-exch').value.trim().toUpperCase() || 'NFO';
-  const ttype  = document.getElementById('bleg-ttype').value;
-  const ownerId = document.getElementById('bleg-owner').value;
-  const strat  = document.getElementById('bleg-strategy').value;
-  if (!sym)   { alert('Symbol is required'); return; }
-  if (!entry) { alert('Entry price is required'); return; }
-  _basket.push({
-    symbol: sym, instrument_type: itype, exchange: exch,
-    action, entry_price: entry, stop_loss: sl,
-    targets: t1 ? [t1] : [], quantity: lots, lot_size: 1,
-    trade_type: ttype, trailing_sl_points: null,
-    owner_id: ownerId ? +ownerId : null,
-    strategy: strat || null,
-  });
-  renderBasketLegs();
-  document.getElementById('bleg-sym').value = '';
-  document.getElementById('bleg-entry').value = '';
-  document.getElementById('bleg-sl').value = '';
-  document.getElementById('bleg-t1').value = '';
+let _basketMode = false;
+function toggleBasketMode() {
+  _basketMode = document.getElementById('oc-basket-mode').checked;
+  renderBasketBar();
 }
 
-function removeLeg(idx) {
-  _basket.splice(idx, 1);
-  renderBasketLegs();
-}
-
-function renderBasketLegs() {
-  const container = document.getElementById('basket-legs');
-  document.getElementById('basket-count').textContent = _basket.length + ' leg' + (_basket.length !== 1 ? 's' : '');
-  if (!_basket.length) {
-    container.innerHTML = '<div class="empty">No legs yet. Add from the panel →</div>';
-    return;
+function renderBasketBar() {
+  const bar = document.getElementById('oc-basket-bar');
+  const count = document.getElementById('oc-basket-count');
+  const preview = document.getElementById('oc-basket-preview');
+  
+  if (_basketMode && _basket.length > 0) {
+    bar.style.display = 'flex';
+    count.textContent = `${_basket.length} leg${_basket.length!==1?'s':''}`;
+    preview.innerHTML = _basket.map(leg => `
+      <span style="font-size:10px;background:#0b0b14;padding:2px 6px;border-radius:4px;border:1px solid #252540;white-space:nowrap;color:${leg.action==='BUY'?'#00d4aa':'#ff4d6d'}">
+        ${leg.symbol.replace(/^[A-Z]+/,'')}
+      </span>`).join('');
+  } else if (_basketMode) {
+    bar.style.display = 'flex';
+    count.textContent = '0 legs (click strikes to add)';
+    preview.innerHTML = '';
+  } else {
+    bar.style.display = 'none';
   }
-  container.innerHTML = _basket.map((leg, i) => `
-    <div class="basket-leg">
-      <div class="leg-header">
-        <span class="leg-symbol">${leg.symbol}</span>
-        <span class="leg-action ${leg.action === 'BUY' ? 'buy' : 'sell'}">${leg.action} ${leg.instrument_type}</span>
-        <button class="del-leg" onclick="removeLeg(${i})">✕</button>
-      </div>
-      <div><div class="lg">Entry</div><div class="lv">${leg.entry_price}</div></div>
-      <div><div class="lg">SL</div><div class="lv">${leg.stop_loss || '—'}</div></div>
-      <div><div class="lg">Qty</div><div class="lv">${leg.quantity}</div></div>
-      <div><div class="lg">Type</div><div class="lv">${leg.trade_type}</div></div>
-      ${leg.owner_id ? `<div style="grid-column:1/-1"><div class="lg">Owner</div><div class="lv" style="font-size:11px;color:#6c9eff">ID:${leg.owner_id} ${leg.strategy ? '· '+leg.strategy : ''}</div></div>` : ''}
-    </div>`).join('');
 }
 
-function clearBasket() {
-  if (!_basket.length || confirm('Clear all basket legs?')) { _basket = []; renderBasketLegs(); }
+function showBasketAlert(msg, type='ok') {
+  showAlert(msg, type);
 }
 
 async function executeBasket() {
-  if (!_basket.length) { showBasketAlert('Basket is empty', 'err'); return; }
+  if (!_basket.length) { alert('Basket is empty'); return; }
   if (!confirm(`Execute ${_basket.length} trade(s)?`)) return;
+  
+  const ownerId = document.getElementById('oc-basket-owner').value;
+  const strategy = document.getElementById('oc-basket-strategy').value;
+  
+  const legs = _basket.map(leg => ({
+    ...leg,
+    owner_id: ownerId ? +ownerId : leg.owner_id,
+    strategy: strategy || leg.strategy
+  }));
+
   try {
     const res = await fetch('/api/basket', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ legs: _basket })
+      body: JSON.stringify({ legs })
     });
     const d = await res.json();
-    // Show results
-    const resultDiv = document.getElementById('basket-results');
-    const rowsDiv   = document.getElementById('basket-result-rows');
-    resultDiv.style.display = 'block';
-    rowsDiv.innerHTML = d.results.map(r => `
-      <div class="basket-result-row">
-        <span>${r.action} ${r.symbol}</span>
-        <span>${r.success
-          ? `<span class="green">✅ Trade #${r.trade_id}</span>`
-          : `<span class="red">❌ ${r.error || 'Failed'}</span>`}</span>
-      </div>`).join('');
-    showBasketAlert(`⚡ ${d.created}/${d.total} trades created`);
-    if (d.created > 0) {
+    if (res.ok) {
+      showAlert(`⚡ ${d.created}/${d.total} trades created`);
       _basket = [];
-      renderBasketLegs();
-    }
-  } catch(e) { showBasketAlert('Network error: ' + e.message, 'err'); }
+      renderBasketBar();
+      if (d.created > 0) {
+        setTimeout(() => switchTab('signals'), 1000);
+      }
+    } else { alert('Error: ' + d.detail); }
+  } catch(e) { alert('Network error: ' + e.message); }
 }
 
-// Basket templates (localStorage)
-function saveTemplate() {
-  if (!_basket.length) { showBasketAlert('Basket is empty', 'err'); return; }
-  const name = document.getElementById('tpl-name').value.trim();
-  if (!name) { alert('Enter a template name'); return; }
-  const templates = JSON.parse(localStorage.getItem('basket_templates') || '{}');
-  templates[name] = _basket;
-  localStorage.setItem('basket_templates', JSON.stringify(templates));
-  document.getElementById('tpl-name').value = '';
-  renderTemplateList();
-  showBasketAlert(`💾 Template "${name}" saved`);
-}
-
-function renderTemplateList() {
-  const templates = JSON.parse(localStorage.getItem('basket_templates') || '{}');
-  const list = document.getElementById('template-list');
-  const keys = Object.keys(templates);
-  if (!keys.length) {
-    list.innerHTML = '<div class="empty" style="font-size:11px">No saved templates</div>';
-    return;
+function clearBasket() {
+  if (!_basket.length || confirm('Clear all basket legs?')) { 
+    _basket = []; 
+    renderBasketBar(); 
   }
-  list.innerHTML = keys.map(k => `
-    <div class="template-chip">
-      <span onclick="loadTemplate('${k}')" style="flex:1">📋 ${k} <span style="color:#444;font-size:10px">(${templates[k].length} legs)</span></span>
-      <span style="color:#ff4d6d;cursor:pointer;font-size:12px" onclick="deleteTemplate('${k}')">✕</span>
-    </div>`).join('');
-}
-
-function loadTemplate(name) {
-  const templates = JSON.parse(localStorage.getItem('basket_templates') || '{}');
-  if (!templates[name]) return;
-  _basket = [...templates[name]];
-  renderBasketLegs();
-  showBasketAlert(`📋 Template "${name}" loaded`);
-}
-
-function deleteTemplate(name) {
-  if (!confirm(`Delete template "${name}"?`)) return;
-  const templates = JSON.parse(localStorage.getItem('basket_templates') || '{}');
-  delete templates[name];
-  localStorage.setItem('basket_templates', JSON.stringify(templates));
-  renderTemplateList();
 }
 </script>
 </body>
