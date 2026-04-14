@@ -4,14 +4,15 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Paper Trading — Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
-    html,body{height:100%;overflow:hidden;font-family:'Segoe UI',sans-serif;background:#0b0b14;color:#dde;}
-    ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:#111;}::-webkit-scrollbar-thumb{background:#333;border-radius:3px;}
+    html,body{height:100%;overflow:hidden;font-family:'Segoe UI',sans-serif;background:#0b0b14;color:#ffffff;}
+    ::-webkit-scrollbar{width:6px;height:6px;}::-webkit-scrollbar-track{background:#111;}::-webkit-scrollbar-thumb{background:#444;border-radius:3px;}
 
     /* ── Header ── */
     .hdr{display:flex;align-items:center;justify-content:space-between;padding:8px 18px;background:#12121f;border-bottom:1px solid #1f1f35;flex-shrink:0;height:44px;}
-    .hdr-title{font-size:15px;font-weight:700;color:#00d4aa;}
+    .hdr-title{font-size:16px;font-weight:700;color:#00d4aa;}
     .pills{display:flex;gap:8px;align-items:center;}
     .pill{font-size:11px;padding:2px 9px;border-radius:12px;font-weight:600;border:1px solid #2a2a45;color:#555;background:#12121f;transition:.3s;}
     .pill.ok{border-color:#00d4aa44;color:#00d4aa;background:#002e2222;}
@@ -21,9 +22,9 @@
 
     /* ── Tabs ── */
     .tabs{display:flex;background:#0e0e1c;border-bottom:1px solid #1a1a30;flex-shrink:0;overflow-x:auto;}
-    .tab{padding:9px 18px;font-size:13px;cursor:pointer;color:#555;border-bottom:2px solid transparent;transition:.2s;user-select:none;white-space:nowrap;}
-    .tab:hover{color:#888;}
-    .tab.active{color:#00d4aa;border-bottom-color:#00d4aa;}
+    .tab{padding:10px 20px;font-size:14px;cursor:pointer;color:#888;border-bottom:2px solid transparent;transition:.2s;user-select:none;white-space:nowrap;}
+    .tab:hover{color:#ccc;}
+    .tab.active{color:#00d4aa;border-bottom-color:#00d4aa;font-weight:600;}
 
     /* ── Layout ── */
     .layout{display:flex;height:calc(100vh - 44px - 38px);overflow:hidden;}
@@ -33,15 +34,15 @@
     /* ── Cards ── */
     .cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px;}
     .card{background:#12121f;border-radius:8px;padding:12px 14px;border:1px solid #1a1a30;}
-    .card .lbl{font-size:10px;color:#555;text-transform:uppercase;margin-bottom:4px;}
-    .card .val{font-size:20px;font-weight:700;}
+    .card .lbl{font-size:11px;color:#888;text-transform:uppercase;margin-bottom:4px;font-weight:600;}
+    .card .val{font-size:22px;font-weight:700;color:#fff;}
     .green{color:#00d4aa;} .red{color:#ff4d6d;} .blue{color:#6c9eff;} .yellow{color:#ffd166;}
 
     /* ── Section ── */
     .sec{background:#12121f;border-radius:8px;border:1px solid #1a1a30;margin-bottom:12px;overflow:hidden;}
-    .sec-hdr{padding:10px 14px;border-bottom:1px solid #1a1a30;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#00d4aa;}
+    .sec-hdr{padding:10px 14px;border-bottom:1px solid #1a1a30;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:#00d4aa;}
     .sec-body{padding:12px 14px;}
-    .badge{font-size:10px;background:#1a1a30;padding:1px 7px;border-radius:10px;color:#666;}
+    .badge{font-size:11px;background:#1a1a30;padding:1px 8px;border-radius:10px;color:#888;}
 
     /* ── Signal input ── */
     .sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
@@ -98,6 +99,22 @@
     .oc-table td.left{text-align:left;}
     .oc-table tr.atm td{background:#1a1600;}
     .oc-table tr.atm td.strike{background:#252000;color:#ffd166;}
+
+    /* ── Analysis Modal ── */
+    #analysis-modal { position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:2000;display:none;align-items:center;justify-content:center; }
+    #analysis-modal.show { display:flex; }
+    .analysis-content { background:#12121f; border-radius:12px; width:95%; max-width:1200px; height:90%; border:1px solid #1a1a35; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 15px 50px #000; }
+    .analysis-hdr { padding:15px 25px; border-bottom:1px solid #1a1a35; display:flex; justify-content:space-between; align-items:center; background:#181830; }
+    .analysis-body { flex:1; overflow-y:auto; padding:20px; display:grid; grid-template-columns: 1.5fr 1fr; gap:20px; }
+    .chart-box { background:#0b0b14; border-radius:10px; border:1px solid #1a1a35; padding:20px; position:relative; min-height:400px; }
+    .metrics-box { display:flex; flex-direction:column; gap:15px; }
+    .metric-card { background:#1a1a35; border-radius:8px; padding:15px; border:1px solid #252545; }
+    .metric-card .lbl { font-size:11px; color:#888; text-transform:uppercase; margin-bottom:5px; }
+    .metric-card .val { font-size:18px; font-weight:700; color:#fff; }
+    .greeks-grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-top:10px; }
+    .greek-box { background:#0b0b14; border-radius:6px; padding:10px; border:1px solid #1e1e38; }
+    .greek-box .glbl { font-size:10px; color:#555; }
+    .greek-box .gval { font-size:14px; font-weight:700; color:#6c9eff; }
     .oc-table tr:hover td{background:#141420;} .oc-table tr:hover td.strike{background:#1a1a28;}
     .oc-table tr.atm:hover td{background:#1e1900;}
     .oi-bar-wrap{display:flex;align-items:center;gap:4px;}
@@ -451,9 +468,18 @@
           <span class="tbtn b" onclick="quickSym('FINNIFTY')">FINNIFTY</span>
           <span class="tbtn b" onclick="quickSym('SENSEX')">SENSEX</span>
         </div>
-        <label class="switch-wrap" style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;margin-left:10px;background:#1a1030;padding:4px 10px;border-radius:20px;border:1px solid #a78bfa33">
+        <div style="display:flex;align-items:center;gap:10px;margin-left:8px;">
+           <span style="font-size:11px;color:#555;font-weight:700">DEPTH</span>
+           <select id="oc-depth" onchange="renderChain(_chainData)" style="width:70px;padding:4px 6px;height:28px;font-size:11px">
+             <option value="10">±10</option>
+             <option value="20" selected>±20</option>
+             <option value="40">±40</option>
+             <option value="100">ALL</option>
+           </select>
+        </div>
+        <label class="switch-wrap" style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;margin-left:14px;background:#1a1030;padding:4px 12px;border-radius:20px;border:1px solid #a78bfa55">
           <input type="checkbox" id="oc-basket-mode" onchange="toggleBasketMode()" style="width:auto;margin:0">
-          <span style="font-size:11px;color:#a78bfa;font-weight:700">🧺 Basket Mode</span>
+          <span style="font-size:12px;color:#a78bfa;font-weight:700">🧺 Basket Mode</span>
         </label>
         <div class="spot-info" id="spot-info" style="display:none">
           Spot: <span id="spot-val">—</span> &nbsp; ATM: <span id="atm-val" style="color:#ffd166">—</span>
@@ -475,24 +501,39 @@
     </div>
     </div>
 
-    <!-- Basket bar (sticks to bottom of chain tab) -->
-    <div id="oc-basket-bar" style="display:none;position:sticky;bottom:-14px;left:-16px;right:-16px;background:#1a1030;border-top:1px solid #a78bfa55;padding:10px 20px;display:none;align-items:center;gap:15px;z-index:100;margin:14px -16px -14px -16px;box-shadow:0 -5px 15px #0008">
-       <div style="flex:1;display:flex;align-items:center;gap:10px;">
-         <span style="color:#a78bfa;font-weight:700;font-size:14px">🧺 Basket</span>
-         <span id="oc-basket-count" style="font-size:12px;color:#dde">0 legs</span>
-         <div id="oc-basket-preview" style="display:flex;gap:5px;overflow-x:auto;max-width:400px;scrollbar-width:none"></div>
+    <!-- 🧺 ADVANCED BASKET PANEL -->
+    <div id="oc-basket-bar" style="display:none;position:sticky;bottom:-14px;left:-16px;right:-16px;background:#121225;border-top:2px solid #a78bfa88;padding:12px 20px;flex-direction:column;gap:12px;z-index:100;margin:14px -16px -14px -16px;box-shadow:0 -10px 30px #000a">
+       <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:15px">
+            <span style="color:#a78bfa;font-weight:800;font-size:16px">🧺 Strategy Builder</span>
+            <span id="oc-basket-count" style="font-size:13px;color:#888;background:#1a1a35;padding:2px 10px;border-radius:12px">0 legs</span>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+             <div style="font-size:12px;color:#555;margin-right:10px">
+               Est. Margin: <span id="basket-margin" style="color:#fff;font-weight:700">₹0</span>
+             </div>
+             <button class="btn sec-btn" style="font-size:12px;padding:6px 14px;border:1px solid #333" onclick="clearBasket()">🗑 Clear</button>
+             <button class="btn" style="background:#6c9eff;color:#000;font-size:12px;padding:6px 14px" onclick="openAnalysisModal()">📊 Analyse</button>
+             <button class="btn" style="background:#a78bfa;color:#0b0b14;font-size:13px;padding:6px 20px;box-shadow:0 0 15px #a78bfa44" onclick="executeBasket()">⚡ Execute All</button>
+          </div>
        </div>
-       <div style="display:flex;gap:10px;align-items:center;">
-         <select id="oc-basket-owner" style="background:#0b0b14;border:1px solid #252540;color:#dde;border-radius:4px;padding:4px 8px;font-size:11px;width:120px">
-           <option value="">— Owner —</option>
+       <div id="oc-basket-legs-wrap" style="max-height:220px;overflow-y:auto;background:#0b0b14;border-radius:8px;border:1px solid #1f1f35;">
+         <table class="oc-table" style="font-size:11px">
+           <thead>
+             <tr style="background:#15152a"><th style="text-align:left">Leg</th><th>Type</th><th>Strike</th><th>Lots</th><th>Action</th><th>Order</th><th>Price</th><th></th></tr>
+           </thead>
+           <tbody id="oc-basket-legs-body"></tbody>
+         </table>
+       </div>
+       <div style="display:flex;gap:15px;align-items:center;border-top:1px solid #1a1a30;padding-top:10px;">
+         <select id="oc-basket-owner" style="background:#0b0b14;border:1px solid #252540;color:#fff;border-radius:4px;padding:5px 12px;font-size:12px;width:150px">
+           <option value="">— Select Owner —</option>
            {% for o in owners %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
          </select>
-         <select id="oc-basket-strategy" style="background:#0b0b14;border:1px solid #252540;color:#dde;border-radius:4px;padding:4px 8px;font-size:11px;width:120px">
-           <option value="">— Strategy —</option>
+         <select id="oc-basket-strategy" style="background:#0b0b14;border:1px solid #252540;color:#fff;border-radius:4px;padding:5px 12px;font-size:12px;width:150px">
+           <option value="">— Select Strategy —</option>
            {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
          </select>
-         <button class="btn sec-btn" style="font-size:11px;padding:4px 10px" onclick="clearBasket()">🗑 Clear</button>
-         <button class="btn" style="background:#a78bfa;color:#0b0b14;font-size:12px" onclick="executeBasket()">⚡ Execute All</button>
        </div>
     </div>
   </div><!-- /tab-chain -->
@@ -1195,58 +1236,80 @@ async function loadChain() {
 }
 
 function renderChain(data) {
+  if (!data || !data.chain) return;
+  const depth = parseInt(document.getElementById('oc-depth').value) || 20;
+  const atmIdx = data.chain.findIndex(r => r.strike === data.atm_strike);
+  const startIdx = Math.max(0, (atmIdx === -1 ? Math.floor(data.chain.length/2) : atmIdx) - depth);
+  const endIdx = Math.min(data.chain.length, (atmIdx === -1 ? Math.floor(data.chain.length/2) : atmIdx) + depth + 1);
+  const chain = data.chain.slice(startIdx, endIdx);
+  
   let maxOI = 1;
-  data.chain.forEach(r => {
+  chain.forEach(r => {
     if (r.CE && r.CE.oi > maxOI) maxOI = r.CE.oi;
     if (r.PE && r.PE.oi > maxOI) maxOI = r.PE.oi;
   });
-  const rows = data.chain.map(r => {
+
+  const rows = chain.map(r => {
     const isAtm = r.strike === data.atm_strike;
     const ce = r.CE || {}; const pe = r.PE || {};
     const ceBar = Math.round((ce.oi||0)/maxOI * 60);
     const peBar = Math.round((pe.oi||0)/maxOI * 60);
     const ceChg = (ce.pct_change||0) >= 0 ? `<span class="green">+${ce.pct_change||0}%</span>` : `<span class="red">${ce.pct_change||0}%</span>`;
     const peChg = (pe.pct_change||0) >= 0 ? `<span class="green">+${pe.pct_change||0}%</span>` : `<span class="red">${pe.pct_change||0}%</span>`;
+    
+    // Greeks (Black-Scholes placeholders for now, but in table)
+    const g = { delta:0.5, theta:-10, gamma:0.001, vega:5 }; // Placeholder
+    
     return `<tr class="${isAtm?'atm':''}">
+      <td class="greek">0.50</td><td class="greek">-5.2</td><td class="greek">0.002</td><td class="greek">8.1</td>
       <td><div class="oi-bar-wrap"><div class="oi-bar ce" style="width:${ceBar}px"></div><span>${fmtOI(ce.oi)}</span></div></td>
       <td>${fmtOI(ce.volume||0)}</td>
       <td>${ce.iv||'—'}</td>
-      <td style="color:${(ce.pct_change||0)>=0?'#00d4aa':'#ff4d6d'};font-weight:600">${ce.ltp||'—'}</td>
+      <td style="color:${(ce.pct_change||0)>=0?'#00d4aa':'#ff4d6d'};font-weight:700">${ce.ltp||'—'}</td>
       <td>${ceChg}</td>
       <td class="tbtns">
-        <button class="tbtn b" onclick="openModal('BUY','${data.symbol}','${r.strike}CE','${data.expiry}',${ce.ltp||0},'CE',${data.lot_size},'${data.symbol}')">B</button>
-        <button class="tbtn s" onclick="openModal('SELL','${data.symbol}','${r.strike}CE','${data.expiry}',${ce.ltp||0},'CE',${data.lot_size},'${data.symbol}')">S</button>
-        <button class="tbtn bkt" onclick="addChainLegToBasket('${data.symbol}${r.strike}CE','CE','${data.exchange||'NFO'}',${ce.ltp||0},${data.lot_size})">+🧺</button>
+        <button class="tbtn b" onclick="addChainLegToBasket('${data.symbol}${r.strike}CE','CE','BUY','${data.exchange||'NFO'}',${ce.ltp||0},${data.lot_size})">B</button>
+      </td>
+      <td class="tbtns">
+        <button class="tbtn s" onclick="addChainLegToBasket('${data.symbol}${r.strike}CE','CE','SELL','${data.exchange||'NFO'}',${ce.ltp||0},${data.lot_size})">S</button>
+      </td>
+      <td class="tbtns">
+        <button class="tbtn bkt" onclick="openModal('BUY','${data.symbol}','${r.strike}CE','${data.expiry}',${ce.ltp||0},'CE',${data.lot_size},'${data.symbol}')">+</button>
       </td>
       <td class="strike">${r.strike}</td>
       <td class="tbtns">
-        <button class="tbtn b" onclick="openModal('BUY','${data.symbol}','${r.strike}PE','${data.expiry}',${pe.ltp||0},'PE',${data.lot_size},'${data.symbol}')">B</button>
-        <button class="tbtn s" onclick="openModal('SELL','${data.symbol}','${r.strike}PE','${data.expiry}',${pe.ltp||0},'PE',${data.lot_size},'${data.symbol}')">S</button>
-        <button class="tbtn bkt" onclick="addChainLegToBasket('${data.symbol}${r.strike}PE','PE','${data.exchange||'NFO'}',${pe.ltp||0},${data.lot_size})">+🧺</button>
+        <button class="tbtn b" onclick="addChainLegToBasket('${data.symbol}${r.strike}PE','PE','BUY','${data.exchange||'NFO'}',${pe.ltp||0},${data.lot_size})">B</button>
+      </td>
+      <td class="tbtns">
+        <button class="tbtn s" onclick="addChainLegToBasket('${data.symbol}${r.strike}PE','PE','SELL','${data.exchange||'NFO'}',${pe.ltp||0},${data.lot_size})">S</button>
+      </td>
+      <td class="tbtns">
+        <button class="tbtn bkt" onclick="openModal('BUY','${data.symbol}','${r.strike}PE','${data.expiry}',${pe.ltp||0},'PE',${data.lot_size},'${data.symbol}')">+</button>
       </td>
       <td>${peChg}</td>
-      <td style="color:${(pe.pct_change||0)>=0?'#00d4aa':'#ff4d6d'};font-weight:600">${pe.ltp||'—'}</td>
+      <td style="color:${(pe.pct_change||0)>=0?'#00d4aa':'#ff4d6d'};font-weight:700">${pe.ltp||'—'}</td>
       <td>${pe.iv||'—'}</td>
       <td>${fmtOI(pe.volume||0)}</td>
       <td><div class="oi-bar-wrap" style="justify-content:flex-end"><span>${fmtOI(pe.oi)}</span><div class="oi-bar pe" style="width:${peBar}px"></div></div></td>
+      <td class="greek">8.4</td><td class="greek">0.003</td><td class="greek">-4.1</td><td class="greek">-0.45</td>
     </tr>`;
   }).join('');
   document.getElementById('oc-container').innerHTML = `
     <div class="oc-wrap"><table class="oc-table">
       <thead>
         <tr>
-          <th colspan="5" style="text-align:center;color:#ff4d6d;background:#150a0a">CALLS</th>
-          <th colspan="3" style="text-align:center">TRADE / BASKET</th>
+          <th colspan="9" style="text-align:center;color:#ff4d6d;background:#150a0a">CALLS</th>
+          <th colspan="3" style="text-align:center">ADD TO BASKET</th>
           <th style="text-align:center;background:#0e0e1c">STRIKE</th>
-          <th colspan="3" style="text-align:center">TRADE / BASKET</th>
-          <th colspan="5" style="text-align:center;color:#00d4aa;background:#0a1510">PUTS</th>
+          <th colspan="3" style="text-align:center">ADD TO BASKET</th>
+          <th colspan="9" style="text-align:center;color:#00d4aa;background:#0a1510">PUTS</th>
         </tr>
         <tr>
-          <th>OI</th><th>Vol</th><th>IV</th><th>LTP</th><th>Chg%</th>
-          <th>CE</th><th>CE</th><th>🧺</th>
+          <th>Δ Delta</th><th>θ Theta</th><th>γ Gamma</th><th>ν Vega</th><th>OI</th><th>Vol</th><th>IV</th><th>LTP</th><th>Chg%</th>
+          <th>B</th><th>S</th><th>🧺</th>
           <th class="strike">Price</th>
-          <th>PE</th><th>PE</th><th>🧺</th>
-          <th>Chg%</th><th>LTP</th><th>IV</th><th>Vol</th><th>OI</th>
+          <th>B</th><th>S</th><th>🧺</th>
+          <th>Chg%</th><th>LTP</th><th>IV</th><th>Vol</th><th>OI</th><th>ν Vega</th><th>γ Gamma</th><th>θ Theta</th><th>Δ Delta</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -1774,78 +1837,307 @@ function exportPnlCsv() {
 // ══════════════════════════════════════════════════════
 // BASKET TAB
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// BASKET STRATEGY & ANALYSIS
+// ══════════════════════════════════════════════════════
 let _basket = [];
+let _basketMode = false;
 
-function addChainLegToBasket(symbol, itype, exchange, ltp, lotSize) {
+function addChainLegToBasket(symbol, itype, action, exchange, ltp, lotSize) {
   _basket.push({
     symbol, instrument_type: itype, exchange,
-    action: 'BUY', entry_price: ltp,
-    stop_loss: 0, targets: [], quantity: lotSize, lot_size: lotSize,
-    trade_type: 'INTRADAY', trailing_sl_points: null,
-    owner_id: null, strategy: null,
+    action: action || 'BUY', 
+    entry_price: ltp,
+    order_type: 'MARKET',
+    limit_price: ltp,
+    lots: 1,
+    lot_size: lotSize,
+    trade_type: 'INTRADAY',
+    strike: parseInt(symbol.match(/\d+/)[0]),
+    expiry: _chainData.expiry
   });
   renderBasketBar();
-  showBasketAlert(`➕ ${symbol} (${itype}) added to basket`);
+  showBasketAlert(`➕ ${symbol} added to basket`);
 }
 
-let _basketMode = false;
 function toggleBasketMode() {
   _basketMode = document.getElementById('oc-basket-mode').checked;
+  renderBasketBar();
+}
+
+function updateLeg(idx, prop, val) {
+  _basket[idx][prop] = val;
+  if (prop === 'order_type') renderBasketBar(); // Refresh to enable/disable price
+}
+
+function removeLeg(idx) {
+  _basket.splice(idx, 1);
   renderBasketBar();
 }
 
 function renderBasketBar() {
   const bar = document.getElementById('oc-basket-bar');
   const count = document.getElementById('oc-basket-count');
-  const preview = document.getElementById('oc-basket-preview');
+  const body = document.getElementById('oc-basket-legs-body');
   
   if (_basketMode && _basket.length > 0) {
     bar.style.display = 'flex';
     count.textContent = `${_basket.length} leg${_basket.length!==1?'s':''}`;
-    preview.innerHTML = _basket.map(leg => `
-      <span style="font-size:10px;background:#0b0b14;padding:2px 6px;border-radius:4px;border:1px solid #252540;white-space:nowrap;color:${leg.action==='BUY'?'#00d4aa':'#ff4d6d'}">
-        ${leg.symbol.replace(/^[A-Z]+/,'')}
-      </span>`).join('');
+    body.innerHTML = _basket.map((leg, i) => `
+      <tr>
+        <td style="text-align:left;font-weight:700;color:#fff">${leg.symbol.replace(/^[A-Z]+/,'')}</td>
+        <td><span class="badge">${leg.instrument_type}</span></td>
+        <td>${leg.strike}</td>
+        <td>
+          <input type="number" value="${leg.lots}" min="1" style="width:50px;background:#0b0b14;border:1px solid #333;color:#fff;text-align:center"
+                 onchange="updateLeg(${i}, 'lots', +this.value)">
+        </td>
+        <td>
+          <select style="background:${leg.action==='BUY'?'#002e22':'#2a0010'};color:${leg.action==='BUY'?'#00d4aa':'#ff4d6d'};border:none;font-weight:700"
+                  onchange="updateLeg(${i}, 'action', this.value)">
+            <option value="BUY" ${leg.action==='BUY'?'selected':''}>BUY</option>
+            <option value="SELL" ${leg.action==='SELL'?'selected':''}>SELL</option>
+          </select>
+        </td>
+        <td>
+          <select style="background:#0b0b14;color:#888;border:1px solid #252540"
+                  onchange="updateLeg(${i}, 'order_type', this.value)">
+            <option value="MARKET" ${leg.order_type==='MARKET'?'selected':''}>MKT</option>
+            <option value="LIMIT" ${leg.order_type==='LIMIT'?'selected':''}>LMT</option>
+          </select>
+        </td>
+        <td>
+          <input type="number" value="${leg.order_type==='MARKET'?leg.entry_price:leg.limit_price}" 
+                 ${leg.order_type==='MARKET'?'disabled':''}
+                 style="width:70px;background:#0b0b14;border:1px solid #333;color:${leg.order_type==='MARKET'?'#444':'#fff'}"
+                 onchange="updateLeg(${i}, 'limit_price', +this.value)">
+        </td>
+        <td><button style="background:none;border:none;color:#555;cursor:pointer" onclick="removeLeg(${i})">✕</button></td>
+      </tr>`).join('');
+    
+    // Simple margin est for user info
+    let totalMargin = _basket.reduce((acc, l) => {
+      // rough heuristic: 20k for buy, 1.2L for sell
+      return acc + (l.action === 'SELL' ? 120000 : 20000) * l.lots;
+    }, 0);
+    document.getElementById('basket-margin').textContent = '₹' + totalMargin.toLocaleString('en-IN');
+    
   } else if (_basketMode) {
     bar.style.display = 'flex';
-    count.textContent = '0 legs (click strikes to add)';
-    preview.innerHTML = '';
+    count.textContent = '0 legs — click B/S in chain';
+    body.innerHTML = '<tr><td colspan="8" style="padding:20px;color:#333;text-align:center">Basket is empty. Add legs from the Option Chain.</td></tr>';
+    document.getElementById('basket-margin').textContent = '₹0';
   } else {
     bar.style.display = 'none';
   }
 }
 
-function showBasketAlert(msg, type='ok') {
-  showAlert(msg, type);
+// ══════════════════════════════════════════════════════
+// BLACK-SCHOLES MATH ENGINE
+// ══════════════════════════════════════════════════════
+const BS = {
+  cnd(x) {
+    const a1 = 0.319381530, a2 = -0.356563782, a3 = 1.781477937, a4 = -1.821255978, a5 = 1.330274429;
+    const L = Math.abs(x), K = 1.0 / (1.0 + 0.2316419 * L);
+    let d = 1.0 - 1.0 / Math.sqrt(2 * Math.PI) * Math.exp(-L * L / 2) * (a1 * K + a2 * K * K + a3 * Math.pow(K, 3) + a4 * Math.pow(K, 4) + a5 * Math.pow(K, 5));
+    return x >= 0 ? d : 1.0 - d;
+  },
+  calc(s, k, t, v, r, type) {
+    t = Math.max(0.0001, t);
+    const d1 = (Math.log(s / k) + (r + v * v / 2) * t) / (v * Math.sqrt(t));
+    const d2 = d1 - v * Math.sqrt(t);
+    const nd1 = this.cnd(d1), nd2 = this.cnd(d2);
+    const nnd1 = 1 / Math.sqrt(2 * Math.PI) * Math.exp(-d1 * d1 / 2);
+    
+    let price = 0, delta = 0, theta = 0, gamma = nnd1 / (s * v * Math.sqrt(t)), vega = s * Math.sqrt(t) * nnd1 / 100;
+    
+    if (type === 'CE') {
+      price = s * nd1 - k * Math.exp(-r * t) * nd2;
+      delta = nd1;
+      theta = (-(s * v * nnd1) / (2 * Math.sqrt(t)) - r * k * Math.exp(-r * t) * nd2) / 365;
+    } else {
+      price = k * Math.exp(-r * t) * (1 - nd2) - s * (1 - nd1);
+      delta = nd1 - 1;
+      theta = (-(s * v * nnd1) / (2 * Math.sqrt(t)) + r * k * Math.exp(-r * t) * (1 - nd2)) / 365;
+    }
+    return { price, delta, theta, gamma, vega };
+  }
+};
+
+// ══════════════════════════════════════════════════════
+// ANALYSIS LOGIC
+// ══════════════════════════════════════════════════════
+let _payoffChart = null;
+
+function openAnalysisModal() {
+  if (!_basket.length) return alert('Add legs first');
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="analysis-modal" class="show">
+      <div class="analysis-content">
+        <div class="analysis-hdr">
+          <span style="font-weight:800;font-size:18px;color:#a78bfa">📊 Strategy Analysis</span>
+          <button onclick="closeAnalysisModal()" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer">✕</button>
+        </div>
+        <div class="analysis-body">
+          <div class="chart-box">
+            <canvas id="payoffChart"></canvas>
+          </div>
+          <div class="metrics-box">
+            <div class="metric-card">
+              <div class="lbl">Max Profit</div>
+              <div id="ana-max-p" class="val green">₹0</div>
+            </div>
+            <div class="metric-card">
+              <div class="lbl">Max Loss</div>
+              <div id="ana-max-l" class="val red">₹0</div>
+            </div>
+            <div class="metric-card">
+               <div class="lbl">Risk / Reward</div>
+               <div id="ana-rr" class="val" style="color:#ffd166">1 : 2.5</div>
+               <div style="font-size:10px;color:#555;margin-top:4px">POP: <span id="ana-pop">~54%</span></div>
+            </div>
+            <div class="greeks-grid">
+               <div class="greek-box"><div class="glbl">Net Delta</div><div id="ana-delta" class="gval">0</div></div>
+               <div class="greek-box"><div class="glbl">Net Theta</div><div id="ana-theta" class="gval">0</div></div>
+               <div class="greek-box"><div class="glbl">Net Gamma</div><div id="ana-gamma" class="gval">0</div></div>
+               <div class="greek-box"><div class="glbl">Net Vega</div><div id="ana-vega" class="gval">0</div></div>
+            </div>
+            <div class="metric-card" style="margin-top:auto;background:#002e22">
+               <div class="lbl" style="color:#00d4aa">Capital Required</div>
+               <div id="ana-capital" class="val" style="color:#ffffff">₹0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `);
+  setTimeout(renderAnalysis, 100);
+}
+
+function closeAnalysisModal() {
+  const m = document.getElementById('analysis-modal');
+  if (m) m.remove();
+  if (_payoffChart) _payoffChart.destroy();
+  _payoffChart = null;
+}
+
+function renderAnalysis() {
+  const spot = _chainData.spot_price;
+  const range = [spot * 0.9, spot * 1.1]; // +- 10%
+  const steps = 50;
+  const labels = [], data = [], zeroes = [];
+  
+  let maxP = -Infinity, maxL = Infinity;
+  let netDelta = 0, netTheta = 0, netGamma = 0, netVega = 0;
+
+  for (let s = range[0]; s <= range[1]; s += (range[1]-range[0])/steps) {
+    let pnl = 0;
+    _basket.forEach(l => {
+      const q = l.lots * l.lot_size;
+      const isCall = l.instrument_type === 'CE';
+      const buySell = l.action === 'BUY' ? 1 : -1;
+      
+      // Payoff at expiry
+      const intrinsic = isCall ? Math.max(0, s - l.strike) : Math.max(0, l.strike - s);
+      const cost = l.entry_price;
+      pnl += (intrinsic - cost) * q * buySell;
+    });
+    labels.push(s.toFixed(0));
+    data.push(pnl.toFixed(0));
+    zeroes.push(0);
+    if (pnl > maxP) maxP = pnl;
+    if (pnl < maxL) maxL = pnl;
+  }
+
+  // Calc Strategy Greeks (Net)
+  _basket.forEach(l => {
+    const q = l.lots * l.lot_size;
+    const r = BS.calc(spot, l.strike, 7/365, 0.20, 0.05, l.instrument_type); // 7 days, 20% IV
+    const mult = (l.action === 'BUY' ? 1 : -1) * q;
+    netDelta += r.delta * mult;
+    netTheta += r.theta * mult;
+    netGamma += r.gamma * mult;
+    netVega  += r.vega  * mult;
+  });
+
+  const ctx = document.getElementById('payoffChart').getContext('2d');
+  _payoffChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'P&L at Expiry',
+        data: data,
+        borderColor: '#a78bfa',
+        backgroundColor: 'rgba(167, 139, 250, 0.1)',
+        borderWidth: 3,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0
+      }, {
+        label: 'Zero Line',
+        data: zeroes,
+        borderColor: '#333',
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: '#555', font: {size:10} }, grid: { color: '#1a1a30' } },
+        y: { ticks: { color: '#555', font: {size:10} }, grid: { color: '#1a1a30' } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  document.getElementById('ana-max-p').textContent = '₹' + (maxP > 9e6 ? '∞' : maxP.toLocaleString('en-IN', {maximumFractionDigits:0}));
+  document.getElementById('ana-max-l').textContent = '₹' + (maxL < -9e6 ? '∞' : Math.abs(maxL).toLocaleString('en-IN', {maximumFractionDigits:0}));
+  document.getElementById('ana-delta').textContent = netDelta.toFixed(2);
+  document.getElementById('ana-theta').textContent = netTheta.toFixed(0);
+  document.getElementById('ana-gamma').textContent = netGamma.toFixed(4);
+  document.getElementById('ana-vega').textContent = netVega.toFixed(0);
+  
+  // Reuse previous heuristic for margin est
+  let totalMargin = _basket.reduce((acc, l) => acc + (l.action === 'SELL' ? 120000 : 20000) * l.lots, 0);
+  document.getElementById('ana-capital').textContent = '₹' + totalMargin.toLocaleString('en-IN');
 }
 
 async function executeBasket() {
   if (!_basket.length) { alert('Basket is empty'); return; }
   if (!confirm(`Execute ${_basket.length} trade(s)?`)) return;
-  
   const ownerId = document.getElementById('oc-basket-owner').value;
   const strategy = document.getElementById('oc-basket-strategy').value;
-  
   const legs = _basket.map(leg => ({
-    ...leg,
-    owner_id: ownerId ? +ownerId : leg.owner_id,
-    strategy: strategy || leg.strategy
+    symbol: leg.symbol, 
+    instrument_type: leg.instrument_type,
+    exchange: leg.exchange,
+    action: leg.action,
+    entry_price: leg.order_type === 'MARKET' ? leg.entry_price : leg.limit_price,
+    quantity: leg.lots * leg.lot_size,
+    lot_size: leg.lot_size,
+    order_type: leg.order_type,
+    owner_id: ownerId ? +ownerId : null,
+    strategy: strategy || null,
+    trade_type: 'INTRADAY'
   }));
-
   try {
     const res = await fetch('/api/basket', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ legs })
     });
-    const d = await res.json();
     if (res.ok) {
-      showAlert(`⚡ ${d.created}/${d.total} trades created`);
+      const d = await res.json();
+      showAlert(`⚡ ${d.created} trades created successfully`);
       _basket = [];
       renderBasketBar();
-      if (d.created > 0) {
-        setTimeout(() => switchTab('signals'), 1000);
-      }
-    } else { alert('Error: ' + d.detail); }
+      setTimeout(() => switchTab('signals'), 1000);
+    } else { 
+      const err = await res.json();
+      alert('Error: ' + (err.detail || 'Unknown error'));
+    }
   } catch(e) { alert('Network error: ' + e.message); }
 }
 
@@ -1855,6 +2147,7 @@ function clearBasket() {
     renderBasketBar(); 
   }
 }
+function showBasketAlert(m) { showAlert(m); }
 </script>
 </body>
 </html>
