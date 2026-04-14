@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, Text, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
 
@@ -20,6 +21,37 @@ class TradeType(str, enum.Enum):
     INTRADAY = "INTRADAY"
     POSITIONAL = "POSITIONAL"
 
+
+# ─── Owner ────────────────────────────────────────────────────────────────────
+
+class Owner(Base):
+    __tablename__ = "owners"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    color = Column(String(20), default="#6c9eff")       # hex colour tag
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    strategies = relationship("Strategy", back_populates="owner", cascade="all, delete-orphan")
+    trades = relationship("Trade", back_populates="owner")
+
+
+# ─── Strategy ─────────────────────────────────────────────────────────────────
+
+class Strategy(Base):
+    __tablename__ = "strategies"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    owner_id = Column(Integer, ForeignKey("owners.id", ondelete="SET NULL"), nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    owner = relationship("Owner", back_populates="strategies")
+
+
+# ─── Trade ────────────────────────────────────────────────────────────────────
 
 class Trade(Base):
     __tablename__ = "trades"
@@ -62,14 +94,21 @@ class Trade(Base):
     gross_pnl = Column(Float, default=0.0)
     net_pnl = Column(Float, default=0.0)
 
-    # Source
+    # Source / classification
     signal_source = Column(String(100), nullable=True)     # Telegram channel name
     signal_image_path = Column(String(255), nullable=True)
     raw_signal = Column(Text, nullable=True)
+    strategy = Column(String(100), nullable=True)          # Strategy name / tag
+
+    # Owner assignment
+    owner_id = Column(Integer, ForeignKey("owners.id", ondelete="SET NULL"), nullable=True)
+    owner = relationship("Owner", back_populates="trades")
 
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
+
+# ─── Portfolio ────────────────────────────────────────────────────────────────
 
 class Portfolio(Base):
     __tablename__ = "portfolio"
@@ -83,6 +122,8 @@ class Portfolio(Base):
     realized_pnl = Column(Float, default=0.0)
     total_pnl = Column(Float, default=0.0)
 
+
+# ─── DailyReport ──────────────────────────────────────────────────────────────
 
 class DailyReport(Base):
     __tablename__ = "daily_reports"
@@ -99,6 +140,8 @@ class DailyReport(Base):
     ending_capital = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
 
+
+# ─── TickData ─────────────────────────────────────────────────────────────────
 
 class TickData(Base):
     __tablename__ = "tick_data"

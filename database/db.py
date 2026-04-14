@@ -11,6 +11,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    from database.db_migrate import run_migrations
+    run_migrations(engine)
     logger.info("Database initialized")
 
 

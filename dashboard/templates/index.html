@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Paper Trading</title>
+  <title>Paper Trading — Dashboard</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;}
     html,body{height:100%;overflow:hidden;font-family:'Segoe UI',sans-serif;background:#0b0b14;color:#dde;}
@@ -20,8 +20,8 @@
     #srv-time{font-size:11px;color:#444;}
 
     /* ── Tabs ── */
-    .tabs{display:flex;background:#0e0e1c;border-bottom:1px solid #1a1a30;flex-shrink:0;}
-    .tab{padding:9px 20px;font-size:13px;cursor:pointer;color:#555;border-bottom:2px solid transparent;transition:.2s;user-select:none;}
+    .tabs{display:flex;background:#0e0e1c;border-bottom:1px solid #1a1a30;flex-shrink:0;overflow-x:auto;}
+    .tab{padding:9px 18px;font-size:13px;cursor:pointer;color:#555;border-bottom:2px solid transparent;transition:.2s;user-select:none;white-space:nowrap;}
     .tab:hover{color:#888;}
     .tab.active{color:#00d4aa;border-bottom-color:#00d4aa;}
 
@@ -54,10 +54,13 @@
     .opts-row{display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;}
     .opts-row label{font-size:12px;color:#666;}
     .opts-row input,.opts-row select{background:#0b0b14;border:1px solid #252540;color:#dde;border-radius:4px;padding:4px 8px;font-size:12px;width:80px;}
+    .opts-row select{width:140px;}
     .btn{background:#00d4aa;color:#0b0b14;border:none;border-radius:6px;padding:6px 16px;font-weight:700;cursor:pointer;font-size:13px;}
     .btn:hover{background:#00bfa5;}
     .btn.sec-btn{background:#1a1a30;color:#dde;}
     .btn.sec-btn:hover{background:#252545;}
+    .btn.danger{background:#2a0010;color:#ff4d6d;border:1px solid #ff4d6d33;}
+    .btn.danger:hover{background:#ff4d6d;color:#fff;}
 
     /* ── Tables ── */
     table{width:100%;border-collapse:collapse;font-size:12px;}
@@ -69,8 +72,8 @@
     .s-CLOSED,.s-SESSION_END{background:#1a1a30;color:#555;}
     .s-SL_HIT{background:#2a0010;color:#ff4d6d;} .s-TRAILING_SL_HIT{background:#180e30;color:#a78bfa;}
     .s-TARGET_1_HIT,.s-TARGET_2_HIT,.s-TARGET_3_HIT{background:#002e22;color:#00d4aa;}
+    .s-MANUAL_CLOSE{background:#1a1a30;color:#888;}
     .buy{color:#00d4aa;font-weight:700;} .sell{color:#ff4d6d;font-weight:700;}
-    .pnl+{color:#00d4aa;} .pnl-{color:#ff4d6d;}
     .tsl{color:#a78bfa;font-size:11px;}
     .empty{color:#333;text-align:center;padding:20px;font-size:13px;}
     .refresh-btn{background:none;border:1px solid #1a1a30;color:#444;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer;margin-left:auto;}
@@ -81,14 +84,12 @@
     .alert.ok{background:#002e22;color:#00d4aa;border:1px solid #00d4aa33;}
     .alert.err{background:#2a0010;color:#ff4d6d;border:1px solid #ff4d6d33;}
 
-    /* ═══════════════ OPTION CHAIN ═══════════════ */
+    /* ═══ OPTION CHAIN ═══ */
     .oc-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
     .oc-toolbar input,.oc-toolbar select{background:#12121f;border:1px solid #252540;color:#dde;border-radius:6px;padding:6px 10px;font-size:13px;}
-    .oc-toolbar input{width:160px;}
-    .oc-toolbar select{width:180px;}
+    .oc-toolbar input{width:160px;} .oc-toolbar select{width:180px;}
     .spot-info{margin-left:auto;font-size:13px;}
     .spot-info span{color:#00d4aa;font-weight:700;font-size:16px;}
-
     .oc-wrap{overflow-x:auto;}
     .oc-table{width:100%;border-collapse:collapse;font-size:12px;}
     .oc-table th{background:#0e0e1c;padding:6px 8px;text-align:center;color:#444;font-size:10px;text-transform:uppercase;border-bottom:1px solid #1a1a30;}
@@ -97,36 +98,28 @@
     .oc-table td.left{text-align:left;}
     .oc-table tr.atm td{background:#1a1600;}
     .oc-table tr.atm td.strike{background:#252000;color:#ffd166;}
-    .oc-table tr:hover td{background:#141420;}
-    .oc-table tr:hover td.strike{background:#1a1a28;}
+    .oc-table tr:hover td{background:#141420;} .oc-table tr:hover td.strike{background:#1a1a28;}
     .oc-table tr.atm:hover td{background:#1e1900;}
-
-    /* OI bar */
     .oi-bar-wrap{display:flex;align-items:center;gap:4px;}
     .oi-bar{height:6px;border-radius:3px;min-width:2px;max-width:60px;}
     .oi-bar.ce{background:#ff4d6d;} .oi-bar.pe{background:#00d4aa;}
-
-    /* Trade buttons in chain */
     .tbtns{display:flex;gap:3px;justify-content:center;}
     .tbtn{padding:2px 7px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;transition:.15s;}
     .tbtn.b{background:#002e22;color:#00d4aa;border:1px solid #00d4aa33;}
     .tbtn.b:hover{background:#00d4aa;color:#0b0b14;}
     .tbtn.s{background:#2a0010;color:#ff4d6d;border:1px solid #ff4d6d33;}
     .tbtn.s:hover{background:#ff4d6d;color:#fff;}
-
+    .tbtn.bkt{background:#1a1030;color:#a78bfa;border:1px solid #a78bfa33;padding:2px 6px;font-size:9px;}
+    .tbtn.bkt:hover{background:#a78bfa;color:#0b0b14;}
     .oc-status{text-align:center;padding:30px;color:#333;font-size:14px;}
     .loader{display:inline-block;width:20px;height:20px;border:2px solid #1a1a30;border-top-color:#00d4aa;border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;}
     @keyframes spin{to{transform:rotate(360deg)}}
 
-    /* ═══════════════ TRADE MODAL ═══════════════ */
+    /* ═══ TRADE MODAL ═══ */
     .modal-bg{position:fixed;inset:0;background:#000a;z-index:1000;display:none;align-items:center;justify-content:center;}
     .modal-bg.show{display:flex;}
-    .modal{background:#12121f;border-radius:10px;border:1px solid #252540;padding:20px 22px;width:420px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+    .modal{background:#12121f;border-radius:10px;border:1px solid #252540;padding:20px 22px;width:440px;max-width:95vw;max-height:90vh;overflow-y:auto;}
     .modal h3{color:#00d4aa;margin-bottom:14px;font-size:15px;}
-    .modal .action-toggle{display:flex;gap:0;margin-bottom:14px;border-radius:6px;overflow:hidden;border:1px solid #252540;}
-    .modal .action-toggle button{flex:1;padding:8px;border:none;background:#0b0b14;color:#555;font-weight:700;cursor:pointer;font-size:14px;transition:.2s;}
-    .modal .action-toggle button.active-buy{background:#002e22;color:#00d4aa;}
-    .modal .action-toggle button.active-sell{background:#2a0010;color:#ff4d6d;}
     .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
     .form-row.full{grid-template-columns:1fr;}
     .form-group{display:flex;flex-direction:column;gap:4px;}
@@ -140,17 +133,24 @@
     .modal-footer .cancel:hover{background:#252540;}
     .symbol-chip{display:inline-block;background:#1a1a30;color:#00d4aa;padding:3px 10px;border-radius:6px;font-size:13px;font-weight:700;margin-bottom:12px;}
     .divider{border:none;border-top:1px solid #1a1a30;margin:12px 0;}
+    .act-toggle{display:flex;gap:0;margin-bottom:14px;border-radius:6px;overflow:hidden;border:1px solid #252540;}
+    .act-toggle button{flex:1;padding:8px;border:none;background:#0b0b14;color:#555;font-weight:700;cursor:pointer;font-size:14px;transition:.2s;}
 
-    /* ═══════════════ SUB-TABS (Options / Futures) ═══════════════ */
-    .sub-tabs{display:flex;border-bottom:1px solid #1a1a30;margin-bottom:12px;flex-shrink:0;}
+    /* ═══ MODIFY MODAL ═══ */
+    .mmod{background:#12121f;border-radius:10px;border:1px solid #252540;padding:18px 20px;width:400px;max-width:95vw;}
+    .mmod h4{color:#6c9eff;margin-bottom:12px;font-size:14px;}
+    .mmod-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .mmod-grid .form-group input,.mmod-grid .form-group select{font-size:12px;padding:5px 8px;}
+
+    /* ═══ SUB-TABS ═══ */
+    .sub-tabs{display:flex;border-bottom:1px solid #1a1a30;margin-bottom:12px;}
     .sub-tab{padding:7px 18px;font-size:12px;cursor:pointer;color:#555;border-bottom:2px solid transparent;transition:.2s;user-select:none;}
     .sub-tab:hover{color:#888;}
     .sub-tab.active{color:#00d4aa;border-bottom-color:#00d4aa;}
     .sub-pane{display:none;} .sub-pane.active{display:block;}
 
-    /* ═══════════════ FUTURES TABLE ═══════════════ */
+    /* ═══ FUTURES ═══ */
     .fut-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-    @media(max-width:760px){.fut-grid{grid-template-columns:1fr;}}
     .fut-sec{background:#12121f;border-radius:8px;border:1px solid #1a1a30;overflow:hidden;}
     .fut-hdr{padding:8px 14px;border-bottom:1px solid #1a1a30;font-size:12px;font-weight:600;color:#00d4aa;display:flex;align-items:center;gap:8px;}
     .fut-table{width:100%;border-collapse:collapse;font-size:12px;}
@@ -164,22 +164,67 @@
     #img-preview{margin-top:8px;display:none;}
     #img-preview img{max-width:160px;border-radius:5px;border:1px solid #252540;}
     #parsed-out{margin-top:6px;font-size:11px;color:#555;font-family:monospace;background:#0b0b14;padding:8px;border-radius:5px;max-height:80px;overflow-y:auto;}
-    /* paste overlay hint */
     .paste-hint{font-size:11px;color:#00d4aa44;text-align:center;margin-top:4px;}
-    /* action buttons */
     .act-btn{padding:2px 8px;border-radius:4px;border:none;font-size:10px;font-weight:700;cursor:pointer;}
     .act-btn.edit{background:#1a1a30;color:#6c9eff;border:1px solid #2a2a50;}
     .act-btn.edit:hover{background:#2a2a50;}
     .act-btn.del{background:#1a0010;color:#ff4d6d;border:1px solid #3a0020;}
     .act-btn.del:hover{background:#ff4d6d;color:#fff;}
-    /* LTP live */
     .ltp-cell{font-weight:700;font-size:12px;}
     .ltp-up{color:#00d4aa;} .ltp-dn{color:#ff4d6d;} .ltp-neu{color:#888;}
-    /* modify modal */
-    .mmod{background:#12121f;border-radius:10px;border:1px solid #252540;padding:18px 20px;width:380px;max-width:95vw;}
-    .mmod h4{color:#6c9eff;margin-bottom:12px;font-size:14px;}
-    .mmod-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-    .mmod-grid .form-group input{font-size:12px;padding:5px 8px;}
+
+    /* ═══ OWNER TAB ═══ */
+    .owner-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .owner-card{background:#12121f;border-radius:10px;border:1px solid #1a1a30;padding:14px 16px;position:relative;transition:.2s;}
+    .owner-card:hover{border-color:#2a2a45;}
+    .owner-color-bar{width:4px;border-radius:2px;position:absolute;left:0;top:0;bottom:0;}
+    .owner-name{font-size:15px;font-weight:700;margin-left:10px;}
+    .owner-meta{font-size:11px;color:#444;margin-top:6px;}
+    .owner-stats{display:flex;gap:14px;margin-top:10px;}
+    .owner-stat{text-align:center;}
+    .owner-stat .sv{font-size:16px;font-weight:700;}
+    .owner-stat .sk{font-size:10px;color:#444;margin-top:1px;}
+    .owner-actions{display:flex;gap:6px;margin-top:12px;}
+    .color-swatch{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.15s;}
+    .color-swatch.sel,.color-swatch:hover{border-color:#fff;}
+    .strat-chip{display:inline-flex;align-items:center;gap:5px;background:#1a1a30;border-radius:14px;padding:3px 10px;font-size:11px;margin:3px;cursor:pointer;transition:.2s;}
+    .strat-chip:hover{background:#252545;}
+    .strat-chip .del-x{color:#ff4d6d;font-size:10px;margin-left:2px;}
+
+    /* ═══ P&L REPORT ═══ */
+    .pnl-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+    .pnl-filters select,.pnl-filters input{background:#12121f;border:1px solid #252540;color:#dde;border-radius:6px;padding:6px 10px;font-size:13px;}
+    .pnl-summary-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px;}
+    .month-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;margin-bottom:4px;background:#12121f;border:1px solid #1a1a30;cursor:pointer;transition:.15s;}
+    .month-row:hover{border-color:#2a2a45;}
+    .month-label{font-size:13px;font-weight:600;width:80px;}
+    .month-bar-wrap{flex:1;height:8px;background:#0e0e18;border-radius:4px;overflow:hidden;}
+    .month-bar{height:100%;border-radius:4px;transition:.4s;}
+    .month-pnl{width:90px;text-align:right;font-weight:700;font-size:13px;}
+    .month-meta{font-size:11px;color:#444;width:100px;text-align:right;}
+    .owner-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+    .owner-bar-label{width:100px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .owner-bar-outer{flex:1;height:14px;background:#0e0e18;border-radius:4px;overflow:hidden;}
+    .owner-bar-inner{height:100%;border-radius:4px;}
+    .owner-bar-val{width:70px;text-align:right;font-size:11px;font-weight:700;}
+
+    /* ═══ BASKET TAB ═══ */
+    .basket-layout{display:grid;grid-template-columns:1fr 320px;gap:14px;height:100%;}
+    .basket-builder{background:#12121f;border-radius:8px;border:1px solid #1a1a30;padding:14px;display:flex;flex-direction:column;gap:10px;}
+    .basket-leg{background:#0e0e18;border-radius:6px;padding:10px 12px;border:1px solid #1a1a30;display:grid;grid-template-columns:1fr 1fr;gap:6px;position:relative;}
+    .basket-leg .leg-header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;margin-bottom:4px;}
+    .basket-leg .leg-symbol{color:#dde;}
+    .basket-leg .leg-action.buy{color:#00d4aa;} .basket-leg .leg-action.sell{color:#ff4d6d;}
+    .basket-leg .del-leg{background:none;border:none;color:#ff4d6d;cursor:pointer;font-size:14px;padding:0 4px;}
+    .basket-leg .lg{font-size:10px;color:#555;} .basket-leg .lv{font-size:12px;font-weight:600;}
+    .basket-panel{background:#12121f;border-radius:8px;border:1px solid #1a1a30;padding:14px;display:flex;flex-direction:column;gap:10px;}
+    .basket-panel h4{font-size:13px;font-weight:700;color:#a78bfa;}
+    .basket-add-form{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+    .basket-add-form .form-group input,.basket-add-form .form-group select{font-size:12px;padding:5px 7px;}
+    .basket-templates{display:flex;flex-direction:column;gap:4px;}
+    .template-chip{display:flex;align-items:center;justify-content:space-between;background:#0e0e18;border-radius:5px;padding:6px 10px;font-size:12px;cursor:pointer;border:1px solid #1a1a30;transition:.15s;}
+    .template-chip:hover{border-color:#a78bfa;}
+    .basket-result-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #1a1a30;}
   </style>
 </head>
 <body>
@@ -199,9 +244,12 @@
 
 <!-- ── Tabs ───────────────────────────────────── -->
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('signals')">📡 Signals</div>
-  <div class="tab" onclick="switchTab('chain')">📊 Option Chain</div>
-  <div class="tab" onclick="switchTab('positions')">💼 Positions</div>
+  <div class="tab active"  onclick="switchTab('signals')">📡 Signals</div>
+  <div class="tab"         onclick="switchTab('chain')">📊 Chain</div>
+  <div class="tab"         onclick="switchTab('positions')">💼 Positions</div>
+  <div class="tab"         onclick="switchTab('owners')">👥 Owners</div>
+  <div class="tab"         onclick="switchTab('pnl')">📊 P&amp;L Report</div>
+  <div class="tab"         onclick="switchTab('basket')">🧺 Basket</div>
 </div>
 
 <!-- ── Layout ─────────────────────────────────── -->
@@ -247,7 +295,7 @@
           <!-- Image upload -->
           <div>
             <div class="drop-zone" id="drop-zone"
-                 ondragover="e=>{e.preventDefault();this.classList.add('dragover')}"
+                 ondragover="event.preventDefault();this.classList.add('dragover')"
                  ondragleave="this.classList.remove('dragover')"
                  ondrop="onDrop(event)"
                  onclick="document.getElementById('file-in').click()">
@@ -264,6 +312,16 @@
             <div class="opts-row">
               <label>Lot</label><input type="number" id="img-lot" value="1" min="1" style="width:60px"/>
               <label>Trail SL pts</label><input type="number" id="img-trail" placeholder="auto" style="width:80px"/>
+              <label>Owner</label>
+              <select id="img-owner" style="width:120px">
+                <option value="">— None —</option>
+                {% for o in owners %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+              </select>
+              <label>Strategy</label>
+              <select id="img-strategy" style="width:120px">
+                <option value="">— None —</option>
+                {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+              </select>
               <button class="btn" onclick="submitImage()">Submit Signal</button>
             </div>
           </div>
@@ -274,11 +332,11 @@
             <textarea class="paste-box" id="txt-signal"
               placeholder="#SENSEX 77400CE buy abv 213 tar 249 291 sl 181&#10;&#10;— or —&#10;&#10;BUY&#10;LAURUSLABS APR 1100PE&#10;ENTRY - 44&#10;SL - 36&#10;RISK - 7000"
               onpaste="setTimeout(()=>previewText(),100)"
-              onkeydown="if(e.ctrlKey&&e.key==='Enter')submitText()"></textarea>
+              onkeydown="if(event.ctrlKey&&event.key==='Enter')submitText()"></textarea>
             <div class="opts-row">
               <label>Lot</label><input type="number" id="txt-lot" value="1" min="1" style="width:60px"/>
               <label>Trail SL pts</label><input type="number" id="txt-trail" placeholder="auto" style="width:80px"/>
-              <button class="btn" onclick="submitText()">Parse & Trade</button>
+              <button class="btn" onclick="submitText()">Parse &amp; Trade</button>
             </div>
           </div>
         </div>
@@ -294,10 +352,10 @@
       <div style="overflow-x:auto;">
         <table id="open-pos-table">
           <thead><tr>
-            <th>#</th><th>Symbol</th><th>Action</th>
+            <th>#</th><th>Symbol</th><th>Act</th>
             <th>LTP</th><th style="color:#ffd166">Unrlz P&L</th><th>Entry</th><th>Entry Time</th><th>SL</th>
             <th>Trail SL</th><th>TSL pts</th><th>T1</th><th>T2</th>
-            <th>Status</th><th>Act</th>
+            <th>Owner</th><th>Strategy</th><th>Status</th><th>Act</th>
           </tr></thead>
           <tbody id="open-pos-body">
           {% for t in open_trades %}
@@ -314,6 +372,8 @@
             <td class="tsl">{{ t.trailing_sl_points or "—" }}</td>
             <td>{{ t.target1 or "—" }}</td>
             <td>{{ t.target2 or "—" }}</td>
+            <td>{% if t.owner %}<span style="background:{{ t.owner.color }}22;color:{{ t.owner.color }};padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">{{ t.owner.name }}</span>{% else %}<span style="color:#333">—</span>{% endif %}</td>
+            <td style="font-size:11px;color:#888">{{ t.strategy or "—" }}</td>
             <td><span class="sbadge s-{{ t.status }}" id="st-{{ t.id }}">{{ t.status }}</span></td>
             <td style="white-space:nowrap">
               <button class="act-btn edit" onclick="openModify({{ t.id }},{{ t.entry_price }},{{ t.stop_loss }},{{ t.trailing_sl or t.stop_loss }},{{ t.trailing_sl_points or 0 }},{{ t.target1 or 0 }},{{ t.target2 or 0 }})">✏️</button>
@@ -336,9 +396,9 @@
       <div style="overflow-x:auto;">
         <table>
           <thead><tr>
-            <th>#</th><th>Symbol</th><th>Action</th><th>Entry</th>
+            <th>#</th><th>Symbol</th><th>Act</th><th>Entry</th>
             <th>Exit</th><th>Qty</th><th>Points</th><th>Realized P&L</th><th>Reason</th>
-            <th>Entry Time</th><th>Exit Time</th>
+            <th>Owner</th><th>Strategy</th><th>Entry Time</th><th>Exit Time</th>
           </tr></thead>
           <tbody>
           {% for t in closed_trades %}
@@ -357,6 +417,8 @@
               {% if t.gross_pnl %}{{ "{:+,.0f}".format(t.gross_pnl) }}{% else %}—{% endif %}
             </td>
             <td><span class="sbadge s-{{ t.exit_reason or t.status }}">{{ t.exit_reason or t.status }}</span></td>
+            <td>{% if t.owner %}<span style="background:{{ t.owner.color }}22;color:{{ t.owner.color }};padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">{{ t.owner.name }}</span>{% else %}<span style="color:#333">—</span>{% endif %}</td>
+            <td style="font-size:11px;color:#888">{{ t.strategy or "—" }}</td>
             <td style="color:#6c9eff;font-size:11px;">{{ t.entry_triggered_at.strftime('%d %b %H:%M') if t.entry_triggered_at else "—" }}</td>
             <td style="color:#ff4d6d;font-size:11px;">{{ t.closed_at.strftime('%d %b %H:%M') if t.closed_at else "—" }}</td>
           </tr>
@@ -372,13 +434,11 @@
 
   <!-- ══ TAB 2: Option Chain ════════════════════ -->
   <div class="tab-pane" id="tab-chain">
-    <!-- Sub-tabs -->
     <div class="sub-tabs">
       <div class="sub-tab active" id="stab-options" onclick="switchSubTab('options')">📊 Options</div>
       <div class="sub-tab" id="stab-futures" onclick="switchSubTab('futures')">🔮 Futures</div>
     </div>
 
-    <!-- Sub-pane: Options -->
     <div class="sub-pane active" id="subtab-options">
       <div class="oc-toolbar">
         <input type="text" id="oc-symbol" placeholder="NIFTY / BANKNIFTY / AAPL..." value="NIFTY"
@@ -400,7 +460,6 @@
       </div>
     </div>
 
-    <!-- Sub-pane: Futures -->
     <div class="sub-pane" id="subtab-futures">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div style="font-size:12px;color:#555;">Nearest-expiry futures · auto-refreshes every 30s</div>
@@ -416,7 +475,7 @@
   <div class="tab-pane" id="tab-positions">
     <div style="display:flex;gap:10px;margin-bottom:12px;">
       <button class="btn sec-btn" onclick="refreshPositions()">↻ Refresh</button>
-      <button class="btn" style="background:#2a0010;color:#ff4d6d;" onclick="closeAllIntraday()">Close All Intraday</button>
+      <button class="btn danger" onclick="closeAllIntraday()">Close All Intraday</button>
     </div>
     <div class="sec">
       <div class="sec-hdr">🟢 Open Positions</div>
@@ -428,36 +487,234 @@
     </div>
   </div>
 
+  <!-- ══ TAB 4: Owners ══════════════════════════ -->
+  <div class="tab-pane" id="tab-owners">
+    <div id="owner-alert" class="alert"></div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
+      <button class="btn" onclick="openOwnerModal()">+ New Owner</button>
+      <button class="btn sec-btn" onclick="loadOwners()">↻ Refresh</button>
+      <span style="font-size:12px;color:#444">Manage owners and their trading strategies</span>
+    </div>
+
+    <!-- Owner cards -->
+    <div class="owner-grid" id="owner-grid">
+      <div class="empty" style="grid-column:1/-1">Loading owners…</div>
+    </div>
+
+    <!-- Strategy section -->
+    <div class="sec" style="margin-top:14px" id="strat-section">
+      <div class="sec-hdr">
+        📂 Strategies
+        <button class="btn sec-btn" style="font-size:11px;padding:3px 10px;margin-left:4px" onclick="openStratModal()">+ Add</button>
+        <button class="refresh-btn" onclick="loadStrategies()">↻</button>
+      </div>
+      <div class="sec-body" id="strat-list">
+        <div class="empty">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB 5: P&L Report ═══════════════════════ -->
+  <div class="tab-pane" id="tab-pnl">
+    <!-- Filters -->
+    <div class="pnl-filters">
+      <select id="pnl-owner" onchange="loadPnl()">
+        <option value="">All Owners</option>
+        {% for o in owners %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+      </select>
+      <select id="pnl-strategy" onchange="loadPnl()">
+        <option value="">All Strategies</option>
+        {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+      </select>
+      <select id="pnl-year" onchange="loadPnl()">
+        <option value="">All Years</option>
+      </select>
+      <select id="pnl-month" onchange="loadPnl()">
+        <option value="">All Months</option>
+        <option value="1">January</option><option value="2">February</option>
+        <option value="3">March</option><option value="4">April</option>
+        <option value="5">May</option><option value="6">June</option>
+        <option value="7">July</option><option value="8">August</option>
+        <option value="9">September</option><option value="10">October</option>
+        <option value="11">November</option><option value="12">December</option>
+      </select>
+      <button class="btn" onclick="loadPnl()">🔄 Refresh</button>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="pnl-summary-cards">
+      <div class="card"><div class="lbl">Total P&L</div><div class="val green" id="ps-total">—</div></div>
+      <div class="card"><div class="lbl">Total Trades</div><div class="val blue" id="ps-count">—</div></div>
+      <div class="card"><div class="lbl">Win Rate</div><div class="val yellow" id="ps-winrate">—</div></div>
+      <div class="card"><div class="lbl">Wins</div><div class="val green" id="ps-wins">—</div></div>
+      <div class="card"><div class="lbl">Best Trade</div><div class="val green" id="ps-best">—</div></div>
+      <div class="card"><div class="lbl">Worst Trade</div><div class="val red" id="ps-worst">—</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 300px;gap:14px">
+      <!-- Monthly breakdown -->
+      <div>
+        <div class="sec">
+          <div class="sec-hdr">📅 Monthly Breakdown</div>
+          <div class="sec-body" id="monthly-breakdown">
+            <div class="empty">Run the filter above to load data</div>
+          </div>
+        </div>
+
+        <!-- Trade table -->
+        <div class="sec">
+          <div class="sec-hdr">📋 Trade Log <button class="refresh-btn" onclick="exportPnlCsv()">⬇ CSV</button></div>
+          <div style="overflow-x:auto" id="pnl-trade-table">
+            <div class="empty">No data loaded</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right panel: owner bars + strategy -->
+      <div>
+        <div class="sec" style="margin-bottom:12px">
+          <div class="sec-hdr">👥 By Owner</div>
+          <div class="sec-body" id="pnl-by-owner"><div class="empty">—</div></div>
+        </div>
+        <div class="sec">
+          <div class="sec-hdr">📂 By Strategy</div>
+          <div class="sec-body" id="pnl-by-strategy"><div class="empty">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB 6: Basket ══════════════════════════ -->
+  <div class="tab-pane" id="tab-basket">
+    <div id="basket-alert" class="alert"></div>
+    <div class="basket-layout">
+
+      <!-- Left: Basket legs -->
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <h3 style="color:#a78bfa;font-size:15px;">🧺 Basket Builder</h3>
+          <button class="btn sec-btn" style="font-size:11px" onclick="clearBasket()">🗑 Clear</button>
+          <button class="btn" style="background:#a78bfa;color:#0b0b14;font-size:12px" onclick="executeBasket()">⚡ Execute All</button>
+          <span id="basket-count" style="font-size:11px;color:#555">0 legs</span>
+        </div>
+        <div id="basket-legs" style="display:flex;flex-direction:column;gap:8px;">
+          <div class="empty">No legs yet. Add from the panel →</div>
+        </div>
+        <div id="basket-results" style="margin-top:14px;display:none">
+          <div class="sec-hdr" style="color:#a78bfa">⚡ Execution Results</div>
+          <div id="basket-result-rows" style="padding:8px 0;"></div>
+        </div>
+      </div>
+
+      <!-- Right: Add leg / templates -->
+      <div>
+        <div class="basket-panel" style="margin-bottom:12px">
+          <h4>➕ Add Leg Manually</h4>
+          <div class="basket-add-form">
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Symbol</label>
+              <input type="text" id="bleg-sym" placeholder="NIFTY24APR24000CE" style="font-size:12px;padding:5px 7px"/>
+            </div>
+            <div class="form-group">
+              <label>Action</label>
+              <select id="bleg-action" style="font-size:12px;padding:5px 7px">
+                <option value="BUY">BUY</option>
+                <option value="SELL">SELL</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Instrument</label>
+              <select id="bleg-itype" style="font-size:12px;padding:5px 7px">
+                <option value="CE">CE</option><option value="PE">PE</option>
+                <option value="FUT">FUT</option><option value="EQ">EQ</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Entry Price</label>
+              <input type="number" id="bleg-entry" step="0.05" placeholder="0.00" style="font-size:12px;padding:5px 7px"/>
+            </div>
+            <div class="form-group">
+              <label>Stop Loss</label>
+              <input type="number" id="bleg-sl" step="0.05" placeholder="0.00" style="font-size:12px;padding:5px 7px"/>
+            </div>
+            <div class="form-group">
+              <label>Target 1</label>
+              <input type="number" id="bleg-t1" step="0.05" placeholder="optional" style="font-size:12px;padding:5px 7px"/>
+            </div>
+            <div class="form-group">
+              <label>Lots</label>
+              <input type="number" id="bleg-lots" value="1" min="1" style="font-size:12px;padding:5px 7px"/>
+            </div>
+            <div class="form-group">
+              <label>Exchange</label>
+              <input type="text" id="bleg-exch" value="NFO" style="font-size:12px;padding:5px 7px;text-transform:uppercase"/>
+            </div>
+            <div class="form-group">
+              <label>Trade Type</label>
+              <select id="bleg-ttype" style="font-size:12px;padding:5px 7px">
+                <option value="INTRADAY">Intraday</option>
+                <option value="POSITIONAL">Positional</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Owner</label>
+              <select id="bleg-owner" style="font-size:12px;padding:5px 7px">
+                <option value="">— None —</option>
+                {% for o in owners %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>Strategy</label>
+              <select id="bleg-strategy" style="font-size:12px;padding:5px 7px">
+                <option value="">— None —</option>
+                {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+              </select>
+            </div>
+          </div>
+          <button class="btn sec-btn" style="width:100%;margin-top:4px" onclick="addManualLeg()">➕ Add to Basket</button>
+        </div>
+
+        <!-- Saved templates -->
+        <div class="basket-panel">
+          <h4>💾 Saved Templates</h4>
+          <div style="display:flex;gap:6px;margin-bottom:8px;">
+            <input type="text" id="tpl-name" placeholder="Template name…" style="flex:1;background:#0b0b14;border:1px solid #252540;color:#dde;border-radius:5px;padding:5px 8px;font-size:12px"/>
+            <button class="btn sec-btn" style="font-size:11px;padding:4px 10px" onclick="saveTemplate()">💾 Save</button>
+          </div>
+          <div id="template-list" class="basket-templates">
+            <div class="empty" style="font-size:11px">No saved templates</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /layout -->
 
-<!-- ══ MODIFY MODAL ═════════════════════════════ -->
+<!-- ══ MODIFY MODAL ═══════════════════════════════ -->
 <div class="modal-bg" id="modify-modal">
   <div class="mmod">
     <h4>✏️ Modify Trade <span id="modify-id" style="color:#555;font-size:12px"></span></h4>
     <div class="mmod-grid">
+      <div class="form-group"><label>Entry Price</label><input type="number" id="mod-entry" step="0.05"/></div>
+      <div class="form-group"><label>Stop Loss</label><input type="number" id="mod-sl" step="0.05"/></div>
+      <div class="form-group"><label>Trailing SL (current)</label><input type="number" id="mod-tsl" step="0.05"/></div>
+      <div class="form-group"><label>Trailing SL Points</label><input type="number" id="mod-tslpts" step="0.5"/></div>
+      <div class="form-group"><label>Target 1</label><input type="number" id="mod-t1" step="0.05"/></div>
+      <div class="form-group"><label>Target 2</label><input type="number" id="mod-t2" step="0.05"/></div>
       <div class="form-group">
-        <label>Entry Price</label>
-        <input type="number" id="mod-entry" step="0.05"/>
+        <label>Owner</label>
+        <select id="mod-owner">
+          <option value="">— None —</option>
+          {% for o in owners %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+        </select>
       </div>
       <div class="form-group">
-        <label>Stop Loss</label>
-        <input type="number" id="mod-sl" step="0.05"/>
-      </div>
-      <div class="form-group">
-        <label>Trailing SL (current)</label>
-        <input type="number" id="mod-tsl" step="0.05"/>
-      </div>
-      <div class="form-group">
-        <label>Trailing SL Points</label>
-        <input type="number" id="mod-tslpts" step="0.5"/>
-      </div>
-      <div class="form-group">
-        <label>Target 1</label>
-        <input type="number" id="mod-t1" step="0.05"/>
-      </div>
-      <div class="form-group">
-        <label>Target 2</label>
-        <input type="number" id="mod-t2" step="0.05"/>
+        <label>Strategy</label>
+        <select id="mod-strategy">
+          <option value="">— None —</option>
+          {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+        </select>
       </div>
     </div>
     <div class="modal-footer" style="margin-top:12px">
@@ -467,24 +724,20 @@
   </div>
 </div>
 
-<!-- ══ TRADE MODAL ══════════════════════════════ -->
+<!-- ══ TRADE MODAL ════════════════════════════════ -->
 <div class="modal-bg" id="trade-modal">
   <div class="modal">
     <h3>🚀 Paper Trade</h3>
     <div class="symbol-chip" id="modal-symbol">—</div>
 
-    <div class="modal .action-toggle" style="display:flex;gap:0;margin-bottom:14px;border-radius:6px;overflow:hidden;border:1px solid #252540;">
-      <button id="btn-buy" onclick="setAction('BUY')" class="active-buy" style="flex:1;padding:9px;border:none;background:#002e22;color:#00d4aa;font-weight:700;cursor:pointer;font-size:14px;">BUY</button>
+    <div class="act-toggle">
+      <button id="btn-buy" onclick="setAction('BUY')" style="flex:1;padding:9px;border:none;background:#002e22;color:#00d4aa;font-weight:700;cursor:pointer;font-size:14px;">BUY</button>
       <button id="btn-sell" onclick="setAction('SELL')" style="flex:1;padding:9px;border:none;background:#0b0b14;color:#555;font-weight:700;cursor:pointer;font-size:14px;">SELL</button>
     </div>
 
     <div class="form-row">
-      <div class="form-group">
-        <label>Entry Price</label>
-        <input type="number" id="m-entry" step="0.05" placeholder="0.00"/>
-      </div>
-      <div class="form-group">
-        <label>Order Type</label>
+      <div class="form-group"><label>Entry Price</label><input type="number" id="m-entry" step="0.05" placeholder="0.00"/></div>
+      <div class="form-group"><label>Order Type</label>
         <select id="m-type">
           <option value="LIMIT">Limit</option>
           <option value="ABOVE">Buy/Sell Above</option>
@@ -493,52 +746,39 @@
         </select>
       </div>
     </div>
-
     <div class="form-row">
-      <div class="form-group">
-        <label>Stop Loss</label>
-        <input type="number" id="m-sl" step="0.05" placeholder="0.00"/>
-      </div>
-      <div class="form-group">
-        <label>Trailing SL Points <span style="color:#555;font-size:10px">(optional)</span></label>
-        <input type="number" id="m-trail" step="0.5" placeholder="auto = SL distance"/>
-      </div>
+      <div class="form-group"><label>Stop Loss</label><input type="number" id="m-sl" step="0.05" placeholder="0.00"/></div>
+      <div class="form-group"><label>Trailing SL Points <span style="color:#555;font-size:10px">(optional)</span></label><input type="number" id="m-trail" step="0.5" placeholder="auto = SL distance"/></div>
     </div>
-
     <div class="form-row">
-      <div class="form-group">
-        <label>Target 1</label>
-        <input type="number" id="m-t1" step="0.05" placeholder="optional"/>
-      </div>
-      <div class="form-group">
-        <label>Target 2</label>
-        <input type="number" id="m-t2" step="0.05" placeholder="optional"/>
-      </div>
+      <div class="form-group"><label>Target 1</label><input type="number" id="m-t1" step="0.05" placeholder="optional"/></div>
+      <div class="form-group"><label>Target 2</label><input type="number" id="m-t2" step="0.05" placeholder="optional"/></div>
     </div>
-
     <div class="form-row">
-      <div class="form-group">
-        <label>Lots</label>
-        <input type="number" id="m-lots" value="1" min="1"/>
-      </div>
-      <div class="form-group">
-        <label>Qty (Lot × Size)</label>
-        <input type="number" id="m-qty" placeholder="auto" readonly style="color:#555;"/>
-        <div class="hint" id="m-qty-hint">Lot size: —</div>
-      </div>
+      <div class="form-group"><label>Lots</label><input type="number" id="m-lots" value="1" min="1"/></div>
+      <div class="form-group"><label>Qty (Lot × Size)</label><input type="number" id="m-qty" placeholder="auto" readonly style="color:#555;"/><div class="hint" id="m-qty-hint">Lot size: —</div></div>
     </div>
-
     <div class="form-row">
-      <div class="form-group">
-        <label>Trade Type</label>
+      <div class="form-group"><label>Trade Type</label>
         <select id="m-ttype">
           <option value="INTRADAY">Intraday</option>
           <option value="POSITIONAL">Positional</option>
         </select>
       </div>
-      <div class="form-group">
-        <label>Exchange</label>
-        <input type="text" id="m-exchange" value="NFO" style="text-transform:uppercase;"/>
+      <div class="form-group"><label>Exchange</label><input type="text" id="m-exchange" value="NFO" style="text-transform:uppercase;"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Owner</label>
+        <select id="m-owner">
+          <option value="">— None —</option>
+          {% for o in owners %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label>Strategy</label>
+        <select id="m-strategy">
+          <option value="">— None —</option>
+          {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+        </select>
       </div>
     </div>
 
@@ -549,24 +789,97 @@
   </div>
 </div>
 
+<!-- ══ OWNER MODAL ════════════════════════════════ -->
+<div class="modal-bg" id="owner-modal">
+  <div class="mmod" style="width:360px">
+    <h4 id="owner-modal-title">👤 New Owner</h4>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Name</label>
+      <input type="text" id="om-name" placeholder="e.g. Rahul" style="font-size:13px;padding:7px 9px"/>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Description (optional)</label>
+      <input type="text" id="om-desc" placeholder="e.g. Indian indices scalper" style="font-size:13px;padding:7px 9px"/>
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label>Color Tag</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px" id="color-swatches">
+        {% for col in ['#00d4aa','#6c9eff','#ff4d6d','#ffd166','#a78bfa','#f97316','#ec4899','#22d3ee'] %}
+        <div class="color-swatch" style="background:{{ col }}" data-color="{{ col }}" onclick="selectColor('{{ col }}')"></div>
+        {% endfor %}
+      </div>
+      <input type="hidden" id="om-color" value="#6c9eff"/>
+    </div>
+    <div class="modal-footer" style="margin-top:8px">
+      <button class="btn cancel" onclick="document.getElementById('owner-modal').classList.remove('show')">Cancel</button>
+      <button class="btn" onclick="submitOwner()">Save Owner</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ STRATEGY MODAL ════════════════════════════ -->
+<div class="modal-bg" id="strat-modal">
+  <div class="mmod" style="width:340px">
+    <h4>📂 New Strategy</h4>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Name</label>
+      <input type="text" id="sm-name" placeholder="e.g. OI Reversal" style="font-size:13px;padding:7px 9px"/>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Owner (optional)</label>
+      <select id="sm-owner" style="font-size:13px;padding:7px 9px">
+        <option value="">— Unassigned —</option>
+        {% for o in owners %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:10px">
+      <label>Description (optional)</label>
+      <input type="text" id="sm-desc" placeholder="Brief description…" style="font-size:13px;padding:7px 9px"/>
+    </div>
+    <div class="modal-footer" style="margin-top:8px">
+      <button class="btn cancel" onclick="document.getElementById('strat-modal').classList.remove('show')">Cancel</button>
+      <button class="btn" onclick="submitStrategy()">Save Strategy</button>
+    </div>
+  </div>
+</div>
+
 <script>
-// ── Tab switching ──────────────────────────────
+// ══════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════
+const TAB_NAMES = ['signals','chain','positions','owners','pnl','basket'];
+
 function switchTab(name) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  document.querySelectorAll('.tab')[['signals','chain','positions'].indexOf(name)].classList.add('active');
+  const idx = TAB_NAMES.indexOf(name);
+  if (idx >= 0) document.querySelectorAll('.tab')[idx].classList.add('active');
   if (name === 'positions') refreshPositions();
+  if (name === 'owners')   { loadOwners(); loadStrategies(); }
+  if (name === 'pnl')      { initPnlYears(); loadPnl(); }
+  if (name === 'basket')   { renderBasketLegs(); renderTemplateList(); }
 }
 
-// ── Alert ─────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// ALERTS / UTILITIES
+// ══════════════════════════════════════════════════════
 function showAlert(msg, type='ok') {
   const b = document.getElementById('alert-box');
   b.textContent = msg; b.className = 'alert ' + type; b.style.display = 'block';
   setTimeout(() => b.style.display='none', 5000);
 }
+function showOwnerAlert(msg, type='ok') {
+  const b = document.getElementById('owner-alert');
+  b.textContent = msg; b.className = 'alert ' + type; b.style.display = 'block';
+  setTimeout(() => b.style.display='none', 4000);
+}
+function showBasketAlert(msg, type='ok') {
+  const b = document.getElementById('basket-alert');
+  b.textContent = msg; b.className = 'alert ' + type; b.style.display = 'block';
+  setTimeout(() => b.style.display='none', 5000);
+}
 
-// ── Status pills ──────────────────────────────
 function setPill(id, text, cls) {
   const el = document.getElementById(id);
   if (el) { el.textContent = text; el.className = 'pill ' + cls; }
@@ -588,7 +901,9 @@ async function updateStatus() {
 }
 updateStatus(); setInterval(updateStatus, 10000);
 
-// ── Global Ctrl+V paste (image anywhere on page) ──
+// ══════════════════════════════════════════════════════
+// PASTE HANDLER
+// ══════════════════════════════════════════════════════
 document.addEventListener('paste', (e) => {
   const items = Array.from(e.clipboardData?.items || []);
   const imgItem = items.find(i => i.type.startsWith('image/'));
@@ -596,14 +911,13 @@ document.addEventListener('paste', (e) => {
   e.preventDefault();
   selFile = imgItem.getAsFile();
   showPreview(selFile);
-  // Switch to signals tab if not already there
-  if (!document.getElementById('tab-signals').classList.contains('active')) {
-    switchTab('signals');
-  }
+  if (!document.getElementById('tab-signals').classList.contains('active')) switchTab('signals');
   showAlert('📋 Screenshot pasted! Click "Submit Signal" to parse.', 'ok');
 });
 
-// ── Signal Tab: Image upload ───────────────────
+// ══════════════════════════════════════════════════════
+// SIGNAL: IMAGE
+// ══════════════════════════════════════════════════════
 let selFile = null;
 function onFileSelect(inp) { selFile = inp.files[0]; showPreview(selFile); }
 function onDrop(e) {
@@ -644,8 +958,10 @@ async function submitImage() {
   } catch { showAlert('Network error', 'err'); }
 }
 
-// ── Signal Tab: Text paste ─────────────────────
-function previewText() { /* just shows text already pasted */ }
+// ══════════════════════════════════════════════════════
+// SIGNAL: TEXT
+// ══════════════════════════════════════════════════════
+function previewText() { }
 async function submitText() {
   const text = document.getElementById('txt-signal').value.trim();
   if (!text) { showAlert('Please paste a signal', 'err'); return; }
@@ -661,16 +977,17 @@ async function submitText() {
   } catch { showAlert('Network error', 'err'); }
 }
 
-// ── Live LTP + P&L for open positions (every 5s) ────
+// ══════════════════════════════════════════════════════
+// LIVE LTP + P&L
+// ══════════════════════════════════════════════════════
 let _prevLtp = {};
-let _realizedPnl = {{ total_pnl }};  // from server-side render
+let _realizedPnl = {{ total_pnl }};
 
 async function refreshOpenPos() {
   try {
     const trades = await fetch('/api/trades/open-ltp').then(r => r.json());
     const sec = document.getElementById('open-pos-sec');
     const cnt = document.getElementById('open-cnt');
-
     if (!trades.length) {
       if (sec) sec.style.display = 'none';
       setCard('card-unrealized', '₹0', 'yellow');
@@ -681,11 +998,8 @@ async function refreshOpenPos() {
     if (sec) sec.style.display = '';
     if (cnt) cnt.textContent = trades.length;
     setCard('card-open', trades.length, 'blue');
-
     let totalUnrealized = 0;
-
     trades.forEach(t => {
-      // ── LTP update ──
       const ltpEl = document.getElementById('ltp-' + t.id);
       if (ltpEl && t.ltp != null) {
         const prev = _prevLtp[t.id];
@@ -694,34 +1008,24 @@ async function refreshOpenPos() {
         ltpEl.className = 'ltp-cell ' + cls;
         _prevLtp[t.id] = t.ltp;
       }
-
-      // ── Unrealized P&L per trade ──
       const pnlEl = document.getElementById('pnl-' + t.id);
       if (pnlEl && t.ltp != null) {
         const entry = parseFloat(pnlEl.dataset.entry);
         const qty   = parseInt(pnlEl.dataset.qty);
-        const action = pnlEl.dataset.action;
-        const mult = action === 'BUY' ? 1 : -1;
-        const pnl = mult * (t.ltp - entry) * qty;
+        const mult  = pnlEl.dataset.action === 'BUY' ? 1 : -1;
+        const pnl   = mult * (t.ltp - entry) * qty;
         totalUnrealized += pnl;
         pnlEl.textContent = fmt(pnl);
         pnlEl.className = 'ltp-cell ' + (pnl > 0 ? 'ltp-up' : pnl < 0 ? 'ltp-dn' : 'ltp-neu');
       }
-
-      // ── Trailing SL ──
       const tslEl = document.getElementById('tsl-' + t.id);
       if (tslEl && t.trailing_sl) tslEl.textContent = t.trailing_sl.toFixed(2);
-
-      // ── Status badge ──
       const stEl = document.getElementById('st-' + t.id);
       if (stEl) { stEl.textContent = t.status; stEl.className = 'sbadge s-' + t.status; }
     });
-
-    // ── Update summary cards ──
     const unrealColor = totalUnrealized >= 0 ? 'green' : 'red';
     setCard('card-unrealized', fmt(totalUnrealized), unrealColor);
     updateTotalCard(totalUnrealized);
-
   } catch(e) { console.error('LTP refresh error:', e); }
 }
 
@@ -729,27 +1033,29 @@ function fmt(n) {
   const sign = n >= 0 ? '+' : '';
   return sign + '₹' + Math.abs(n).toLocaleString('en-IN', {maximumFractionDigits: 0});
 }
-
 function fmtTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
 }
-
 function fmtDateTime(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${d.getDate()} ${months[d.getMonth()]} ${d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', hour12:false})}`;
 }
-
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
 function setCard(id, val, color) {
   const el = document.getElementById(id);
   if (!el) return;
   el.textContent = val;
   el.className = 'val ' + color;
 }
-
 function updateTotalCard(unrealized) {
   const total = _realizedPnl + unrealized;
   const el = document.getElementById('card-total');
@@ -757,8 +1063,6 @@ function updateTotalCard(unrealized) {
   el.textContent = fmt(total);
   el.className = 'val ' + (total >= 0 ? 'green' : 'red');
 }
-
-// Also fetch realized P&L live (for when trades close)
 async function refreshSummary() {
   try {
     const s = await fetch('/api/portfolio/summary').then(r => r.json());
@@ -768,13 +1072,13 @@ async function refreshSummary() {
     setCard('card-winrate', s.total_trades > 0 ? s.win_rate.toFixed(1) + '%' : '—', 'yellow');
   } catch(e) {}
 }
+refreshOpenPos(); refreshSummary();
+setInterval(refreshOpenPos, 5000);
+setInterval(refreshSummary, 30000);
 
-refreshOpenPos();
-refreshSummary();
-setInterval(refreshOpenPos, 5000);   // LTP + P&L every 5s
-setInterval(refreshSummary, 30000);  // Summary every 30s
-
-// ── Modify Modal ───────────────────────────────
+// ══════════════════════════════════════════════════════
+// MODIFY MODAL
+// ══════════════════════════════════════════════════════
 let _modifyId = null;
 function openModify(id, entry, sl, tsl, tslpts, t1, t2) {
   _modifyId = id;
@@ -790,40 +1094,32 @@ function openModify(id, entry, sl, tsl, tslpts, t1, t2) {
 async function submitModify() {
   if (!_modifyId) return;
   const body = {};
-  const entry  = +document.getElementById('mod-entry').value;
-  const sl     = +document.getElementById('mod-sl').value;
-  const tsl    = +document.getElementById('mod-tsl').value;
-  const tslpts = +document.getElementById('mod-tslpts').value;
-  const t1     = +document.getElementById('mod-t1').value;
-  const t2     = +document.getElementById('mod-t2').value;
-  if (entry)  body.entry_price = entry;
-  if (sl)     body.stop_loss = sl;
-  if (tsl)    body.trailing_sl = tsl;
-  if (tslpts) body.trailing_sl_points = tslpts;
-  if (t1)     body.target1 = t1;
-  if (t2)     body.target2 = t2;
-
+  const v = (id) => +document.getElementById(id).value;
+  const sv = (id) => document.getElementById(id).value;
+  if (v('mod-entry'))  body.entry_price = v('mod-entry');
+  if (v('mod-sl'))     body.stop_loss = v('mod-sl');
+  if (v('mod-tsl'))    body.trailing_sl = v('mod-tsl');
+  if (v('mod-tslpts')) body.trailing_sl_points = v('mod-tslpts');
+  if (v('mod-t1'))     body.target1 = v('mod-t1');
+  if (v('mod-t2'))     body.target2 = v('mod-t2');
+  const ownerId = sv('mod-owner');
+  const strat   = sv('mod-strategy');
+  if (ownerId)  body.owner_id = +ownerId;
+  if (strat)    body.strategy = strat;
   try {
     const res = await fetch('/api/trades/' + _modifyId, {
-      method: 'PATCH',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body)
+      method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
     });
     const d = await res.json();
     if (res.ok) {
       document.getElementById('modify-modal').classList.remove('show');
       showAlert('✅ Trade #' + _modifyId + ' updated');
       setTimeout(() => location.reload(), 800);
-    } else {
-      showAlert('❌ ' + d.detail, 'err');
-    }
+    } else { showAlert('❌ ' + d.detail, 'err'); }
   } catch { showAlert('Network error', 'err'); }
 }
-
-// ── Delete/Close Trade ─────────────────────────
 async function deleteTrade(id) {
-  const msg = 'Close/Cancel trade #' + id + '?\n• PENDING → Cancel\n• OPEN → Force close at current LTP';
-  if (!confirm(msg)) return;
+  if (!confirm('Close/Cancel trade #' + id + '?\n• PENDING → Cancel\n• OPEN → Force close at current LTP')) return;
   try {
     const res = await fetch('/api/trades/' + id, { method: 'DELETE' });
     const d = await res.json();
@@ -832,25 +1128,19 @@ async function deleteTrade(id) {
       if (row) row.remove();
       showAlert('✅ Trade #' + id + ' removed');
       refreshOpenPos();
-    } else {
-      showAlert('❌ ' + d.detail, 'err');
-    }
+    } else { showAlert('❌ ' + d.detail, 'err'); }
   } catch { showAlert('Network error', 'err'); }
 }
-
-// Close modify modal on bg click
 document.getElementById('modify-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('modify-modal'))
     document.getElementById('modify-modal').classList.remove('show');
 });
 
-// ── Option Chain ───────────────────────────────
+// ══════════════════════════════════════════════════════
+// OPTION CHAIN
+// ══════════════════════════════════════════════════════
 let _chainData = null;
-
-function quickSym(sym) {
-  document.getElementById('oc-symbol').value = sym;
-  loadChain();
-}
+function quickSym(sym) { document.getElementById('oc-symbol').value = sym; loadChain(); }
 
 async function loadChain() {
   const sym = document.getElementById('oc-symbol').value.trim().toUpperCase();
@@ -858,7 +1148,6 @@ async function loadChain() {
   const expiry = document.getElementById('oc-expiry').value;
   let url = `/api/option-chain/${sym}`;
   if (expiry && expiry !== '— select expiry —') url += `?expiry=${encodeURIComponent(expiry)}`;
-
   document.getElementById('oc-container').innerHTML = '<div class="oc-status"><span class="loader"></span>Loading option chain...</div>';
   try {
     const res = await fetch(url);
@@ -868,16 +1157,11 @@ async function loadChain() {
       return;
     }
     _chainData = await res.json();
-
-    // Populate expiry dropdown
     const sel = document.getElementById('oc-expiry');
     sel.innerHTML = _chainData.expiries.map(e => `<option value="${e}" ${e===_chainData.expiry?'selected':''}>${e}</option>`).join('');
-
-    // Update spot info
     document.getElementById('spot-info').style.display = 'flex';
     document.getElementById('spot-val').textContent = _chainData.spot_price.toLocaleString('en-IN');
     document.getElementById('atm-val').textContent = _chainData.atm_strike;
-
     renderChain(_chainData);
   } catch(e) {
     document.getElementById('oc-container').innerHTML = `<div class="oc-status" style="color:#ff4d6d">❌ ${e.message}</div>`;
@@ -885,29 +1169,20 @@ async function loadChain() {
 }
 
 function renderChain(data) {
-  // Find max OI for bar scaling
   let maxOI = 1;
   data.chain.forEach(r => {
     if (r.CE && r.CE.oi > maxOI) maxOI = r.CE.oi;
     if (r.PE && r.PE.oi > maxOI) maxOI = r.PE.oi;
   });
-
   const rows = data.chain.map(r => {
     const isAtm = r.strike === data.atm_strike;
-    const ce = r.CE || {};
-    const pe = r.PE || {};
+    const ce = r.CE || {}; const pe = r.PE || {};
     const ceBar = Math.round((ce.oi||0)/maxOI * 60);
     const peBar = Math.round((pe.oi||0)/maxOI * 60);
     const ceChg = (ce.pct_change||0) >= 0 ? `<span class="green">+${ce.pct_change||0}%</span>` : `<span class="red">${ce.pct_change||0}%</span>`;
     const peChg = (pe.pct_change||0) >= 0 ? `<span class="green">+${pe.pct_change||0}%</span>` : `<span class="red">${pe.pct_change||0}%</span>`;
-
     return `<tr class="${isAtm?'atm':''}">
-      <td>
-        <div class="oi-bar-wrap">
-          <div class="oi-bar ce" style="width:${ceBar}px"></div>
-          <span>${fmtOI(ce.oi)}</span>
-        </div>
-      </td>
+      <td><div class="oi-bar-wrap"><div class="oi-bar ce" style="width:${ceBar}px"></div><span>${fmtOI(ce.oi)}</span></div></td>
       <td>${fmtOI(ce.volume||0)}</td>
       <td>${ce.iv||'—'}</td>
       <td style="color:${(ce.pct_change||0)>=0?'#00d4aa':'#ff4d6d'};font-weight:600">${ce.ltp||'—'}</td>
@@ -915,47 +1190,41 @@ function renderChain(data) {
       <td class="tbtns">
         <button class="tbtn b" onclick="openModal('BUY','${data.symbol}','${r.strike}CE','${data.expiry}',${ce.ltp||0},'CE',${data.lot_size},'${data.symbol}')">B</button>
         <button class="tbtn s" onclick="openModal('SELL','${data.symbol}','${r.strike}CE','${data.expiry}',${ce.ltp||0},'CE',${data.lot_size},'${data.symbol}')">S</button>
+        <button class="tbtn bkt" onclick="addChainLegToBasket('${data.symbol}${r.strike}CE','CE','${data.exchange||'NFO'}',${ce.ltp||0},${data.lot_size})">+🧺</button>
       </td>
       <td class="strike">${r.strike}</td>
       <td class="tbtns">
         <button class="tbtn b" onclick="openModal('BUY','${data.symbol}','${r.strike}PE','${data.expiry}',${pe.ltp||0},'PE',${data.lot_size},'${data.symbol}')">B</button>
         <button class="tbtn s" onclick="openModal('SELL','${data.symbol}','${r.strike}PE','${data.expiry}',${pe.ltp||0},'PE',${data.lot_size},'${data.symbol}')">S</button>
+        <button class="tbtn bkt" onclick="addChainLegToBasket('${data.symbol}${r.strike}PE','PE','${data.exchange||'NFO'}',${pe.ltp||0},${data.lot_size})">+🧺</button>
       </td>
       <td>${peChg}</td>
       <td style="color:${(pe.pct_change||0)>=0?'#00d4aa':'#ff4d6d'};font-weight:600">${pe.ltp||'—'}</td>
       <td>${pe.iv||'—'}</td>
       <td>${fmtOI(pe.volume||0)}</td>
-      <td>
-        <div class="oi-bar-wrap" style="justify-content:flex-end">
-          <span>${fmtOI(pe.oi)}</span>
-          <div class="oi-bar pe" style="width:${peBar}px"></div>
-        </div>
-      </td>
+      <td><div class="oi-bar-wrap" style="justify-content:flex-end"><span>${fmtOI(pe.oi)}</span><div class="oi-bar pe" style="width:${peBar}px"></div></div></td>
     </tr>`;
   }).join('');
-
   document.getElementById('oc-container').innerHTML = `
-    <div class="oc-wrap">
-      <table class="oc-table">
-        <thead>
-          <tr>
-            <th colspan="5" style="text-align:center;color:#ff4d6d;background:#150a0a">CALLS</th>
-            <th colspan="2" style="text-align:center">TRADE</th>
-            <th style="text-align:center;background:#0e0e1c">STRIKE</th>
-            <th colspan="2" style="text-align:center">TRADE</th>
-            <th colspan="5" style="text-align:center;color:#00d4aa;background:#0a1510">PUTS</th>
-          </tr>
-          <tr>
-            <th>OI</th><th>Vol</th><th>IV</th><th>LTP</th><th>Chg%</th>
-            <th>CE</th><th>CE</th>
-            <th class="strike">Price</th>
-            <th>PE</th><th>PE</th>
-            <th>Chg%</th><th>LTP</th><th>IV</th><th>Vol</th><th>OI</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+    <div class="oc-wrap"><table class="oc-table">
+      <thead>
+        <tr>
+          <th colspan="5" style="text-align:center;color:#ff4d6d;background:#150a0a">CALLS</th>
+          <th colspan="3" style="text-align:center">TRADE / BASKET</th>
+          <th style="text-align:center;background:#0e0e1c">STRIKE</th>
+          <th colspan="3" style="text-align:center">TRADE / BASKET</th>
+          <th colspan="5" style="text-align:center;color:#00d4aa;background:#0a1510">PUTS</th>
+        </tr>
+        <tr>
+          <th>OI</th><th>Vol</th><th>IV</th><th>LTP</th><th>Chg%</th>
+          <th>CE</th><th>CE</th><th>🧺</th>
+          <th class="strike">Price</th>
+          <th>PE</th><th>PE</th><th>🧺</th>
+          <th>Chg%</th><th>LTP</th><th>IV</th><th>Vol</th><th>OI</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
 }
 
 function fmtOI(n) {
@@ -966,13 +1235,13 @@ function fmtOI(n) {
   return n;
 }
 
-// ── Trade Modal ────────────────────────────────
-let _modalAction = 'BUY';
-let _modalLotSize = 1;
+// ══════════════════════════════════════════════════════
+// TRADE MODAL
+// ══════════════════════════════════════════════════════
+let _modalAction = 'BUY', _modalLotSize = 1;
 
 function openModal(action, underlying, optionSymbol, expiry, ltp, type, lotSize, exchange) {
-  _modalAction = action;
-  _modalLotSize = lotSize || 1;
+  _modalAction = action; _modalLotSize = lotSize || 1;
   document.getElementById('modal-symbol').textContent = `${underlying} ${optionSymbol} (${expiry})`;
   document.getElementById('m-entry').value = ltp || '';
   document.getElementById('m-sl').value = '';
@@ -984,75 +1253,56 @@ function openModal(action, underlying, optionSymbol, expiry, ltp, type, lotSize,
   document.getElementById('m-qty-hint').textContent = `Lot size: ${lotSize}`;
   document.getElementById('m-exchange').value = 'NFO';
   document.getElementById('m-type').value = 'LIMIT';
-
-  // Store for submit
+  document.getElementById('m-owner').value = '';
+  document.getElementById('m-strategy').value = '';
   document.getElementById('trade-modal').dataset.symbol = underlying + optionSymbol;
   document.getElementById('trade-modal').dataset.itype = type;
-
   setAction(action);
   document.getElementById('trade-modal').classList.add('show');
-
-  // Auto-update qty when lots change
   document.getElementById('m-lots').oninput = () => {
     document.getElementById('m-qty').value = +document.getElementById('m-lots').value * _modalLotSize;
   };
 }
-
 function setAction(a) {
   _modalAction = a;
-  const bb = document.getElementById('btn-buy');
-  const bs = document.getElementById('btn-sell');
+  const bb = document.getElementById('btn-buy'), bs = document.getElementById('btn-sell');
   if (a === 'BUY') {
     bb.style.cssText='flex:1;padding:9px;border:none;background:#002e22;color:#00d4aa;font-weight:700;cursor:pointer;font-size:14px;';
     bs.style.cssText='flex:1;padding:9px;border:none;background:#0b0b14;color:#555;font-weight:700;cursor:pointer;font-size:14px;';
-    document.getElementById('modal-submit-btn').style.background='#00d4aa';
-    document.getElementById('modal-submit-btn').style.color='#0b0b14';
+    document.getElementById('modal-submit-btn').style.cssText='background:#00d4aa;color:#0b0b14;';
   } else {
     bb.style.cssText='flex:1;padding:9px;border:none;background:#0b0b14;color:#555;font-weight:700;cursor:pointer;font-size:14px;';
     bs.style.cssText='flex:1;padding:9px;border:none;background:#2a0010;color:#ff4d6d;font-weight:700;cursor:pointer;font-size:14px;';
-    document.getElementById('modal-submit-btn').style.background='#ff4d6d';
-    document.getElementById('modal-submit-btn').style.color='#fff';
+    document.getElementById('modal-submit-btn').style.cssText='background:#ff4d6d;color:#fff;';
   }
 }
-
-function closeModal() {
-  document.getElementById('trade-modal').classList.remove('show');
-}
+function closeModal() { document.getElementById('trade-modal').classList.remove('show'); }
 
 async function submitModalTrade() {
   const modal = document.getElementById('trade-modal');
-  const symbol = modal.dataset.symbol;
-  const itype = modal.dataset.itype;
-  const entry = +document.getElementById('m-entry').value;
-  const sl = +document.getElementById('m-sl').value;
-  const t1 = +document.getElementById('m-t1').value || null;
-  const t2 = +document.getElementById('m-t2').value || null;
-  const trail = +document.getElementById('m-trail').value || null;
-  const lots = +document.getElementById('m-lots').value;
-  const qty = lots * _modalLotSize;
-  const exchange = document.getElementById('m-exchange').value || 'NFO';
+  const symbol = modal.dataset.symbol, itype = modal.dataset.itype;
+  const entry  = +document.getElementById('m-entry').value;
+  const sl     = +document.getElementById('m-sl').value;
+  const t1     = +document.getElementById('m-t1').value || null;
+  const t2     = +document.getElementById('m-t2').value || null;
+  const trail  = +document.getElementById('m-trail').value || null;
+  const lots   = +document.getElementById('m-lots').value;
+  const qty    = lots * _modalLotSize;
+  const exchange  = document.getElementById('m-exchange').value || 'NFO';
   const orderType = document.getElementById('m-type').value;
   const tradeType = document.getElementById('m-ttype').value;
-
+  const ownerId   = document.getElementById('m-owner').value;
+  const strategy  = document.getElementById('m-strategy').value;
   if (!entry) { alert('Entry price is required'); return; }
-
-  const targets = [t1, t2].filter(Boolean);
   const body = {
-    symbol, exchange,
-    instrument_type: itype,
-    action: _modalAction,
-    entry_price: entry,
-    stop_loss: sl,
-    targets,
-    quantity: qty,
-    lot_size: _modalLotSize,
-    trade_type: tradeType,
-    trailing_sl_points: trail,
+    symbol, exchange, instrument_type: itype, action: _modalAction,
+    entry_price: entry, entry_type: orderType,
+    stop_loss: sl, targets: [t1, t2].filter(Boolean),
+    quantity: qty, lot_size: _modalLotSize,
+    trade_type: tradeType, trailing_sl_points: trail,
+    ...(ownerId ? {owner_id: +ownerId} : {}),
+    ...(strategy ? {strategy} : {}),
   };
-
-  // Override entry_type based on order type
-  body.entry_type = orderType;
-
   try {
     const res = await fetch('/api/trade/manual', {
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
@@ -1063,28 +1313,29 @@ async function submitModalTrade() {
       showAlert(`✅ Trade #${d.trade_id} created: ${_modalAction} ${symbol} @ ${entry}`);
       switchTab('signals');
       setTimeout(() => location.reload(), 1500);
-    } else {
-      alert('Error: ' + d.detail);
-    }
+    } else { alert('Error: ' + d.detail); }
   } catch(e) { alert('Network error: ' + e.message); }
 }
-
-// Close modal on bg click
 document.getElementById('trade-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('trade-modal')) closeModal();
 });
 
-// ── Positions Tab ──────────────────────────────
+// ══════════════════════════════════════════════════════
+// POSITIONS TAB
+// ══════════════════════════════════════════════════════
 async function refreshPositions() {
   try {
     const [open, closed] = await Promise.all([
       fetch('/api/trades/open').then(r => r.json()),
-      fetch('/api/trades?status=CLOSED&limit=20').then(r => r.json()),
+      fetch('/api/trades?status=CLOSED&limit=30').then(r => r.json()),
     ]);
+    const ownerBadge = (t) => t.owner_name
+      ? `<span style="background:${t.owner_color}22;color:${t.owner_color};padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">${t.owner_name}</span>`
+      : '<span style="color:#333">—</span>';
 
     document.getElementById('positions-body').innerHTML = open.length ? `
       <div style="overflow-x:auto"><table>
-        <thead><tr><th>#</th><th>Symbol</th><th>Action</th><th>Entry</th><th>Entry Time</th><th>SL</th><th>Trail SL</th><th>T1</th><th>T2</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Symbol</th><th>Act</th><th>Entry</th><th>Entry Time</th><th>SL</th><th>Trail SL</th><th>T1</th><th>T2</th><th>Owner</th><th>Strategy</th><th>Status</th></tr></thead>
         <tbody>${open.map(t => `<tr>
           <td>${t.id}</td>
           <td><strong>${t.symbol}</strong></td>
@@ -1095,13 +1346,15 @@ async function refreshPositions() {
           <td class="tsl">${t.trailing_sl ? t.trailing_sl.toFixed(2) : '—'}</td>
           <td>${t.target1||'—'}</td>
           <td>${t.target2||'—'}</td>
+          <td>${ownerBadge(t)}</td>
+          <td style="font-size:11px;color:#888">${t.strategy||'—'}</td>
           <td><span class="sbadge s-${t.status}">${t.status}</span></td>
         </tr>`).join('')}</tbody>
       </table></div>` : '<div class="empty">No open positions</div>';
 
     document.getElementById('history-body').innerHTML = closed.length ? `
       <div style="overflow-x:auto"><table>
-        <thead><tr><th>#</th><th>Symbol</th><th>Action</th><th>Entry</th><th>Exit</th><th>Qty</th><th>P&L</th><th>Reason</th><th>Entry Time</th><th>Exit Time</th></tr></thead>
+        <thead><tr><th>#</th><th>Symbol</th><th>Act</th><th>Entry</th><th>Exit</th><th>Qty</th><th>P&amp;L</th><th>Reason</th><th>Owner</th><th>Strategy</th><th>Entry Time</th><th>Exit Time</th></tr></thead>
         <tbody>${closed.map(t => `<tr>
           <td>${t.id}</td>
           <td><strong>${t.symbol}</strong></td>
@@ -1109,28 +1362,29 @@ async function refreshPositions() {
           <td>${t.entry_price}</td>
           <td>${t.exit_price||'—'}</td>
           <td>${t.quantity}</td>
-          <td class="${(t.gross_pnl||0)>=0?'green':'red'}">₹${(t.gross_pnl||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+          <td class="${(t.gross_pnl||0)>=0?'green':'red'}" style="font-weight:700">₹${(t.gross_pnl||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
           <td><span class="sbadge s-${t.exit_reason||t.status}">${t.exit_reason||t.status}</span></td>
+          <td>${ownerBadge(t)}</td>
+          <td style="font-size:11px;color:#888">${t.strategy||'—'}</td>
           <td style="font-size:11px;color:#6c9eff">${fmtTime(t.entry_triggered_at)}</td>
           <td style="font-size:11px;color:#ff4d6d">${fmtDateTime(t.closed_at)}</td>
         </tr>`).join('')}</tbody>
       </table></div>` : '<div class="empty">No closed trades</div>';
   } catch(e) { console.error(e); }
 }
-
 async function closeAllIntraday() {
   if (!confirm('Close all intraday positions at current market price?')) return;
   await fetch('/api/close-intraday', {method:'POST'});
   showAlert('All intraday positions closed');
   refreshPositions();
 }
-
-// Auto-refresh open positions every 15s if positions tab is active
 setInterval(() => {
   if (document.getElementById('tab-positions').classList.contains('active')) refreshPositions();
 }, 15000);
 
-// ── Sub-tabs (Options / Futures) ───────────────
+// ══════════════════════════════════════════════════════
+// FUTURES
+// ══════════════════════════════════════════════════════
 function switchSubTab(name) {
   ['options','futures'].forEach(n => {
     document.getElementById('subtab-' + n).classList.toggle('active', n === name);
@@ -1138,10 +1392,6 @@ function switchSubTab(name) {
   });
   if (name === 'futures') loadFutures();
 }
-
-// ── Futures ────────────────────────────────────
-let _futuresTimer = null;
-
 async function loadFutures() {
   const container = document.getElementById('futures-container');
   container.innerHTML = '<div class="oc-status"><span class="loader"></span>Loading futures...</div>';
@@ -1152,17 +1402,14 @@ async function loadFutures() {
       container.innerHTML = `<div class="oc-status" style="color:#ff4d6d">❌ ${e.detail}</div>`;
       return;
     }
-    const data = await res.json();
-    renderFutures(data);
+    renderFutures(await res.json());
   } catch(e) {
     container.innerHTML = `<div class="oc-status" style="color:#ff4d6d">❌ ${e.message}</div>`;
   }
 }
-
 function renderFutures(data) {
   const nse = data.filter(f => f.category === 'NSE');
   const mcx = data.filter(f => f.category === 'MCX');
-
   function futRows(items) {
     return items.map(f => {
       const ltpHtml = f.ltp
@@ -1183,35 +1430,25 @@ function renderFutures(data) {
       </tr>`;
     }).join('');
   }
-
   document.getElementById('futures-container').innerHTML = `
     <div class="fut-grid">
       <div class="fut-sec">
         <div class="fut-hdr">📈 NSE Index Futures <span class="badge">NFO</span></div>
-        <table class="fut-table">
-          <thead><tr><th>Instrument</th><th>Expiry</th><th>LTP</th><th>Lot</th><th>Trade</th></tr></thead>
-          <tbody>${futRows(nse)}</tbody>
-        </table>
+        <table class="fut-table"><thead><tr><th>Instrument</th><th>Expiry</th><th>LTP</th><th>Lot</th><th>Trade</th></tr></thead>
+        <tbody>${futRows(nse)}</tbody></table>
       </div>
       <div class="fut-sec">
         <div class="fut-hdr">🏭 MCX Commodity Futures <span class="badge">MCX</span></div>
-        <table class="fut-table">
-          <thead><tr><th>Instrument</th><th>Expiry</th><th>LTP</th><th>Lot</th><th>Trade</th></tr></thead>
-          <tbody>${futRows(mcx)}</tbody>
-        </table>
+        <table class="fut-table"><thead><tr><th>Instrument</th><th>Expiry</th><th>LTP</th><th>Lot</th><th>Trade</th></tr></thead>
+        <tbody>${futRows(mcx)}</tbody></table>
       </div>
     </div>`;
 }
-
 function openFutModal(action, name, symbol, exchange, ltp, lotSize) {
-  _modalAction = action;
-  _modalLotSize = lotSize || 1;
+  _modalAction = action; _modalLotSize = lotSize || 1;
   document.getElementById('modal-symbol').textContent = `${name} FUT (${exchange})`;
   document.getElementById('m-entry').value = ltp || '';
-  document.getElementById('m-sl').value = '';
-  document.getElementById('m-t1').value = '';
-  document.getElementById('m-t2').value = '';
-  document.getElementById('m-trail').value = '';
+  ['m-sl','m-t1','m-t2','m-trail'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('m-lots').value = 1;
   document.getElementById('m-qty').value = lotSize;
   document.getElementById('m-qty-hint').textContent = `Lot size: ${lotSize}`;
@@ -1225,11 +1462,438 @@ function openFutModal(action, name, symbol, exchange, ltp, lotSize) {
   setAction(action);
   document.getElementById('trade-modal').classList.add('show');
 }
-
-// Auto-refresh futures when sub-tab is active
 setInterval(() => {
   if (document.getElementById('subtab-futures')?.classList.contains('active')) loadFutures();
 }, 30000);
+
+// ══════════════════════════════════════════════════════
+// OWNERS TAB
+// ══════════════════════════════════════════════════════
+let _editOwnerId = null;
+
+async function loadOwners() {
+  try {
+    const owners = await fetch('/api/owners').then(r => r.json());
+    const grid = document.getElementById('owner-grid');
+    if (!owners.length) {
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1">No owners yet. Click "+ New Owner" to create one.</div>';
+      return;
+    }
+    grid.innerHTML = owners.map(o => `
+      <div class="owner-card" style="padding-left:20px">
+        <div class="owner-color-bar" style="background:${o.color}"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="owner-name" style="color:${o.color}">${o.name}</span>
+          <div style="display:flex;gap:5px">
+            <button class="act-btn edit" onclick="openOwnerModal(${o.id},'${o.name}','${o.color}','${o.description||''}')">✏️</button>
+            <button class="act-btn del" onclick="deleteOwner(${o.id},'${o.name}')">✕</button>
+          </div>
+        </div>
+        ${o.description ? `<div class="owner-meta">${o.description}</div>` : ''}
+        <div class="owner-stats">
+          <div class="owner-stat">
+            <div class="sv blue">${o.trade_count}</div>
+            <div class="sk">Trades</div>
+          </div>
+          <div class="owner-stat">
+            <div class="sv green">${o.open_count}</div>
+            <div class="sk">Open</div>
+          </div>
+          <div class="owner-stat">
+            <div class="sv ${o.realized_pnl >= 0 ? 'green' : 'red'}">${fmt(o.realized_pnl)}</div>
+            <div class="sk">Realized</div>
+          </div>
+          <div class="owner-stat">
+            <div class="sv yellow">${o.win_rate}%</div>
+            <div class="sk">Win Rate</div>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function loadStrategies() {
+  try {
+    const strats = await fetch('/api/strategies').then(r => r.json());
+    const list = document.getElementById('strat-list');
+    if (!strats.length) {
+      list.innerHTML = '<div class="empty">No strategies yet. Click "+ Add" to create one.</div>';
+      return;
+    }
+    list.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:4px">' +
+      strats.map(s => `
+        <div class="strat-chip">
+          ${s.owner_color ? `<span style="width:8px;height:8px;border-radius:50%;background:${s.owner_color};display:inline-block"></span>` : ''}
+          <span>${s.name}</span>
+          ${s.owner_name ? `<span style="color:#444;font-size:10px">(${s.owner_name})</span>` : ''}
+          <span class="del-x" onclick="deleteStrategy(${s.id},'${s.name}')">✕</span>
+        </div>`).join('') + '</div>';
+  } catch(e) { console.error(e); }
+}
+
+function openOwnerModal(id=null, name='', color='#6c9eff', desc='') {
+  _editOwnerId = id;
+  document.getElementById('owner-modal-title').textContent = id ? '✏️ Edit Owner' : '👤 New Owner';
+  document.getElementById('om-name').value = name;
+  document.getElementById('om-desc').value = desc;
+  selectColor(color);
+  document.getElementById('owner-modal').classList.add('show');
+}
+
+function selectColor(col) {
+  document.getElementById('om-color').value = col;
+  document.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.classList.toggle('sel', sw.dataset.color === col);
+    sw.style.outline = sw.dataset.color === col ? `2px solid ${col}` : 'none';
+    sw.style.outlineOffset = '2px';
+  });
+}
+
+async function submitOwner() {
+  const name  = document.getElementById('om-name').value.trim();
+  const color = document.getElementById('om-color').value;
+  const desc  = document.getElementById('om-desc').value.trim();
+  if (!name) { alert('Name is required'); return; }
+  const body = { name, color, description: desc || null };
+  try {
+    const url    = _editOwnerId ? `/api/owners/${_editOwnerId}` : '/api/owners';
+    const method = _editOwnerId ? 'PATCH' : 'POST';
+    const res    = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const d      = await res.json();
+    if (res.ok) {
+      document.getElementById('owner-modal').classList.remove('show');
+      showOwnerAlert(`✅ Owner "${name}" ${_editOwnerId ? 'updated' : 'created'}`);
+      loadOwners();
+    } else { showOwnerAlert('❌ ' + d.detail, 'err'); }
+  } catch { showOwnerAlert('Network error', 'err'); }
+}
+
+async function deleteOwner(id, name) {
+  if (!confirm(`Delete owner "${name}"? Their trades will become unassigned.`)) return;
+  try {
+    const res = await fetch('/api/owners/' + id, { method: 'DELETE' });
+    if (res.ok) { showOwnerAlert(`✅ Owner "${name}" deleted`); loadOwners(); }
+    else { const d = await res.json(); showOwnerAlert('❌ ' + d.detail, 'err'); }
+  } catch { showOwnerAlert('Network error', 'err'); }
+}
+
+document.getElementById('owner-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('owner-modal')) document.getElementById('owner-modal').classList.remove('show');
+});
+
+function openStratModal() { document.getElementById('strat-modal').classList.add('show'); }
+document.getElementById('strat-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('strat-modal')) document.getElementById('strat-modal').classList.remove('show');
+});
+
+async function submitStrategy() {
+  const name    = document.getElementById('sm-name').value.trim();
+  const ownerId = document.getElementById('sm-owner').value;
+  const desc    = document.getElementById('sm-desc').value.trim();
+  if (!name) { alert('Name is required'); return; }
+  const body = { name, description: desc || null, ...(ownerId ? {owner_id: +ownerId} : {}) };
+  try {
+    const res = await fetch('/api/strategies', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const d   = await res.json();
+    if (res.ok) {
+      document.getElementById('strat-modal').classList.remove('show');
+      document.getElementById('sm-name').value = '';
+      showOwnerAlert(`✅ Strategy "${name}" created`);
+      loadStrategies();
+    } else { showOwnerAlert('❌ ' + d.detail, 'err'); }
+  } catch { showOwnerAlert('Network error', 'err'); }
+}
+
+async function deleteStrategy(id, name) {
+  if (!confirm(`Delete strategy "${name}"?`)) return;
+  try {
+    const res = await fetch('/api/strategies/' + id, { method: 'DELETE' });
+    if (res.ok) { showOwnerAlert(`✅ Strategy "${name}" deleted`); loadStrategies(); }
+    else { const d = await res.json(); showOwnerAlert('❌ ' + d.detail, 'err'); }
+  } catch { showOwnerAlert('Network error', 'err'); }
+}
+
+// ══════════════════════════════════════════════════════
+// P&L REPORT TAB
+// ══════════════════════════════════════════════════════
+let _pnlData = null;
+
+function initPnlYears() {
+  const sel = document.getElementById('pnl-year');
+  if (sel.options.length > 1) return;
+  const now = new Date().getFullYear();
+  for (let y = now; y >= now - 3; y--) {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    sel.appendChild(opt);
+  }
+}
+
+async function loadPnl() {
+  const owner    = document.getElementById('pnl-owner').value;
+  const strategy = document.getElementById('pnl-strategy').value;
+  const year     = document.getElementById('pnl-year').value;
+  const month    = document.getElementById('pnl-month').value;
+  let url = '/api/pnl/breakdown?';
+  if (owner)    url += `owner_id=${owner}&`;
+  if (strategy) url += `strategy=${encodeURIComponent(strategy)}&`;
+  if (year)     url += `year=${year}&`;
+  if (month && year) url += `month=${month}&`;
+  try {
+    const d = await fetch(url).then(r => r.json());
+    _pnlData = d;
+    // Summary cards
+    setCard('ps-total',   fmt(d.total_pnl),   d.total_pnl >= 0 ? 'green' : 'red');
+    setCard('ps-count',   d.total_trades,      'blue');
+    setCard('ps-winrate', d.win_rate + '%',    'yellow');
+    setCard('ps-wins',    `${d.total_wins}W / ${d.total_trades - d.total_wins}L`, 'green');
+    setCard('ps-best',    fmt(d.best_trade),   'green');
+    setCard('ps-worst',   fmt(d.worst_trade),  'red');
+
+    // Monthly breakdown
+    const monthly = document.getElementById('monthly-breakdown');
+    if (!d.monthly.length) {
+      monthly.innerHTML = '<div class="empty">No closed trades in this range</div>';
+    } else {
+      const maxAbs = Math.max(...d.monthly.map(m => Math.abs(m.pnl)), 1);
+      monthly.innerHTML = d.monthly.map(m => {
+        const barW = Math.round(Math.abs(m.pnl) / maxAbs * 100);
+        const barColor = m.pnl >= 0 ? '#00d4aa' : '#ff4d6d';
+        const [yr, mo] = m.month.split('-');
+        const moName = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo];
+        return `<div class="month-row">
+          <div class="month-label">${moName} ${yr}</div>
+          <div class="month-bar-wrap"><div class="month-bar" style="width:${barW}%;background:${barColor}"></div></div>
+          <div class="month-pnl ${m.pnl >= 0 ? 'green' : 'red'}">${fmt(m.pnl)}</div>
+          <div class="month-meta">${m.win_rate}% · ${m.count}T</div>
+        </div>`;
+      }).join('');
+    }
+
+    // By owner bars
+    const byOwner = document.getElementById('pnl-by-owner');
+    if (!d.by_owner.length) {
+      byOwner.innerHTML = '<div class="empty">—</div>';
+    } else {
+      const maxOwnerPnl = Math.max(...d.by_owner.map(o => Math.abs(o.pnl)), 1);
+      byOwner.innerHTML = d.by_owner.map(o => `
+        <div class="owner-bar-row">
+          <div class="owner-bar-label" title="${o.name}">${o.name}</div>
+          <div class="owner-bar-outer">
+            <div class="owner-bar-inner" style="width:${Math.round(Math.abs(o.pnl)/maxOwnerPnl*100)}%;background:${o.color}"></div>
+          </div>
+          <div class="owner-bar-val ${o.pnl >= 0 ? 'green' : 'red'}">${fmt(o.pnl)}</div>
+        </div>`).join('');
+    }
+
+    // By strategy
+    const byStrat = document.getElementById('pnl-by-strategy');
+    if (!d.by_strategy.length) {
+      byStrat.innerHTML = '<div class="empty">—</div>';
+    } else {
+      byStrat.innerHTML = `<table style="font-size:11px">
+        <thead><tr><th>Strategy</th><th>Trades</th><th>Win%</th><th>P&L</th></tr></thead>
+        <tbody>${d.by_strategy.map(s => `<tr>
+          <td style="color:#888">${s.strategy}</td>
+          <td>${s.count}</td>
+          <td class="yellow">${s.win_rate}%</td>
+          <td class="${s.pnl >= 0 ? 'green' : 'red'}" style="font-weight:700">${fmt(s.pnl)}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    }
+
+    // Trade log
+    const tradeTable = document.getElementById('pnl-trade-table');
+    if (!d.trades.length) {
+      tradeTable.innerHTML = '<div class="empty">No trades</div>';
+    } else {
+      tradeTable.innerHTML = `<table>
+        <thead><tr>
+          <th>#</th><th>Date</th><th>Symbol</th><th>Act</th><th>Entry</th><th>Exit</th>
+          <th>Pts</th><th>P&L</th><th>Reason</th><th>Owner</th><th>Strategy</th>
+        </tr></thead>
+        <tbody>${d.trades.map(t => `<tr>
+          <td>${t.id}</td>
+          <td style="font-size:11px;color:#444">${fmtDate(t.closed_at)}</td>
+          <td><strong>${t.symbol}</strong></td>
+          <td class="${t.action==='BUY'?'buy':'sell'}">${t.action}</td>
+          <td>${t.entry_price}</td>
+          <td>${t.exit_price||'—'}</td>
+          <td class="${t.points >= 0 ? 'green' : 'red'}" style="font-size:11px">${t.points >= 0 ? '+' : ''}${t.points}</td>
+          <td class="${t.pnl >= 0 ? 'green' : 'red'}" style="font-weight:700">${fmt(t.pnl)}</td>
+          <td><span class="sbadge s-${t.exit_reason}">${t.exit_reason}</span></td>
+          <td>${t.owner_name !== '—' ? `<span style="background:${t.owner_color}22;color:${t.owner_color};padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">${t.owner_name}</span>` : '<span style="color:#333">—</span>'}</td>
+          <td style="font-size:11px;color:#888">${t.strategy||'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    }
+  } catch(e) { console.error('P&L load error:', e); }
+}
+
+function exportPnlCsv() {
+  if (!_pnlData || !_pnlData.trades.length) { alert('No data to export'); return; }
+  const rows = [['ID','Date','Symbol','Action','Entry','Exit','Points','P&L','Reason','Owner','Strategy']];
+  _pnlData.trades.forEach(t => rows.push([
+    t.id, t.closed_at?.split('T')[0]||'', t.symbol, t.action,
+    t.entry_price, t.exit_price||'', t.points, t.pnl,
+    t.exit_reason, t.owner_name, t.strategy
+  ]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `pnl_report_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════
+// BASKET TAB
+// ══════════════════════════════════════════════════════
+let _basket = [];
+
+function addChainLegToBasket(symbol, itype, exchange, ltp, lotSize) {
+  _basket.push({
+    symbol, instrument_type: itype, exchange,
+    action: 'BUY', entry_price: ltp,
+    stop_loss: 0, targets: [], quantity: lotSize, lot_size: lotSize,
+    trade_type: 'INTRADAY', trailing_sl_points: null,
+    owner_id: null, strategy: null,
+  });
+  renderBasketLegs();
+  switchTab('basket');
+  showBasketAlert(`➕ ${symbol} (${itype}) added to basket`);
+}
+
+function addManualLeg() {
+  const sym    = document.getElementById('bleg-sym').value.trim().toUpperCase();
+  const action = document.getElementById('bleg-action').value;
+  const itype  = document.getElementById('bleg-itype').value;
+  const entry  = +document.getElementById('bleg-entry').value;
+  const sl     = +document.getElementById('bleg-sl').value || 0;
+  const t1     = +document.getElementById('bleg-t1').value || null;
+  const lots   = +document.getElementById('bleg-lots').value || 1;
+  const exch   = document.getElementById('bleg-exch').value.trim().toUpperCase() || 'NFO';
+  const ttype  = document.getElementById('bleg-ttype').value;
+  const ownerId = document.getElementById('bleg-owner').value;
+  const strat  = document.getElementById('bleg-strategy').value;
+  if (!sym)   { alert('Symbol is required'); return; }
+  if (!entry) { alert('Entry price is required'); return; }
+  _basket.push({
+    symbol: sym, instrument_type: itype, exchange: exch,
+    action, entry_price: entry, stop_loss: sl,
+    targets: t1 ? [t1] : [], quantity: lots, lot_size: 1,
+    trade_type: ttype, trailing_sl_points: null,
+    owner_id: ownerId ? +ownerId : null,
+    strategy: strat || null,
+  });
+  renderBasketLegs();
+  document.getElementById('bleg-sym').value = '';
+  document.getElementById('bleg-entry').value = '';
+  document.getElementById('bleg-sl').value = '';
+  document.getElementById('bleg-t1').value = '';
+}
+
+function removeLeg(idx) {
+  _basket.splice(idx, 1);
+  renderBasketLegs();
+}
+
+function renderBasketLegs() {
+  const container = document.getElementById('basket-legs');
+  document.getElementById('basket-count').textContent = _basket.length + ' leg' + (_basket.length !== 1 ? 's' : '');
+  if (!_basket.length) {
+    container.innerHTML = '<div class="empty">No legs yet. Add from the panel →</div>';
+    return;
+  }
+  container.innerHTML = _basket.map((leg, i) => `
+    <div class="basket-leg">
+      <div class="leg-header">
+        <span class="leg-symbol">${leg.symbol}</span>
+        <span class="leg-action ${leg.action === 'BUY' ? 'buy' : 'sell'}">${leg.action} ${leg.instrument_type}</span>
+        <button class="del-leg" onclick="removeLeg(${i})">✕</button>
+      </div>
+      <div><div class="lg">Entry</div><div class="lv">${leg.entry_price}</div></div>
+      <div><div class="lg">SL</div><div class="lv">${leg.stop_loss || '—'}</div></div>
+      <div><div class="lg">Qty</div><div class="lv">${leg.quantity}</div></div>
+      <div><div class="lg">Type</div><div class="lv">${leg.trade_type}</div></div>
+      ${leg.owner_id ? `<div style="grid-column:1/-1"><div class="lg">Owner</div><div class="lv" style="font-size:11px;color:#6c9eff">ID:${leg.owner_id} ${leg.strategy ? '· '+leg.strategy : ''}</div></div>` : ''}
+    </div>`).join('');
+}
+
+function clearBasket() {
+  if (!_basket.length || confirm('Clear all basket legs?')) { _basket = []; renderBasketLegs(); }
+}
+
+async function executeBasket() {
+  if (!_basket.length) { showBasketAlert('Basket is empty', 'err'); return; }
+  if (!confirm(`Execute ${_basket.length} trade(s)?`)) return;
+  try {
+    const res = await fetch('/api/basket', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ legs: _basket })
+    });
+    const d = await res.json();
+    // Show results
+    const resultDiv = document.getElementById('basket-results');
+    const rowsDiv   = document.getElementById('basket-result-rows');
+    resultDiv.style.display = 'block';
+    rowsDiv.innerHTML = d.results.map(r => `
+      <div class="basket-result-row">
+        <span>${r.action} ${r.symbol}</span>
+        <span>${r.success
+          ? `<span class="green">✅ Trade #${r.trade_id}</span>`
+          : `<span class="red">❌ ${r.error || 'Failed'}</span>`}</span>
+      </div>`).join('');
+    showBasketAlert(`⚡ ${d.created}/${d.total} trades created`);
+    if (d.created > 0) {
+      _basket = [];
+      renderBasketLegs();
+    }
+  } catch(e) { showBasketAlert('Network error: ' + e.message, 'err'); }
+}
+
+// Basket templates (localStorage)
+function saveTemplate() {
+  if (!_basket.length) { showBasketAlert('Basket is empty', 'err'); return; }
+  const name = document.getElementById('tpl-name').value.trim();
+  if (!name) { alert('Enter a template name'); return; }
+  const templates = JSON.parse(localStorage.getItem('basket_templates') || '{}');
+  templates[name] = _basket;
+  localStorage.setItem('basket_templates', JSON.stringify(templates));
+  document.getElementById('tpl-name').value = '';
+  renderTemplateList();
+  showBasketAlert(`💾 Template "${name}" saved`);
+}
+
+function renderTemplateList() {
+  const templates = JSON.parse(localStorage.getItem('basket_templates') || '{}');
+  const list = document.getElementById('template-list');
+  const keys = Object.keys(templates);
+  if (!keys.length) {
+    list.innerHTML = '<div class="empty" style="font-size:11px">No saved templates</div>';
+    return;
+  }
+  list.innerHTML = keys.map(k => `
+    <div class="template-chip">
+      <span onclick="loadTemplate('${k}')" style="flex:1">📋 ${k} <span style="color:#444;font-size:10px">(${templates[k].length} legs)</span></span>
+      <span style="color:#ff4d6d;cursor:pointer;font-size:12px" onclick="deleteTemplate('${k}')">✕</span>
+    </div>`).join('');
+}
+
+function loadTemplate(name) {
+  const templates = JSON.parse(localStorage.getItem('basket_templates') || '{}');
+  if (!templates[name]) return;
+  _basket = [...templates[name]];
+  renderBasketLegs();
+  showBasketAlert(`📋 Template "${name}" loaded`);
+}
+
+function deleteTemplate(name) {
+  if (!confirm(`Delete template "${name}"?`)) return;
+  const templates = JSON.parse(localStorage.getItem('basket_templates') || '{}');
+  delete templates[name];
+  localStorage.setItem('basket_templates', JSON.stringify(templates));
+  renderTemplateList();
+}
 </script>
 </body>
 </html>
