@@ -35,7 +35,21 @@ class AngelOneAPI:
             return False
 
     def is_connected(self) -> bool:
-        return self._connected
+        """Check if connected, with lazy reconnect attempt"""
+        if not self._connected:
+            return False
+        # Verify session is actually alive by making a lightweight call
+        try:
+            if self.api:
+                # Quick LTP check to verify session
+                result = self.api.ltpData("NSE", "Nifty 50", "99926000")
+                if result and result.get("status"):
+                    return True
+        except Exception:
+            pass
+        # Session may have expired, try reconnect
+        logger.warning("Angel One session expired, reconnecting...")
+        return self.connect()
 
     def get_ltp(self, exchange: str, symbol: str, token: str) -> float | None:
         try:
