@@ -564,7 +564,7 @@
 
     <!-- Owner cards -->
     <div class="owner-grid" id="owner-grid">
-      <div class="empty" style="grid-column:1/-1">Loading owners…</div>
+      <div class="empty" style="grid-column:1/-1">Click "+ New Owner" to create one, or wait for data to load…</div>
     </div>
 
     <!-- Strategy section -->
@@ -1561,8 +1561,13 @@ let _editOwnerId = null;
 
 async function loadOwners() {
   try {
-    const owners = await fetch('/api/owners').then(r => r.json());
+    console.log('[Owners] Fetching owners…');
+    const res = await fetch('/api/owners');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const owners = await res.json();
+    console.log('[Owners] Received:', owners);
     const grid = document.getElementById('owner-grid');
+    if (!grid) { console.error('[Owners] owner-grid element not found!'); return; }
     if (!owners.length) {
       grid.innerHTML = '<div class="empty" style="grid-column:1/-1">No owners yet. Click "+ New Owner" to create one.</div>';
       return;
@@ -1573,7 +1578,7 @@ async function loadOwners() {
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span class="owner-name" style="color:${o.color}">${o.name}</span>
           <div style="display:flex;gap:5px">
-            <button class="act-btn edit" onclick="openOwnerModal(${o.id},'${o.name}','${o.color}','${o.description||''}')">✏️</button>
+            <button class="act-btn edit" onclick="openOwnerModal(${o.id},'${o.name}','${o.color}','${(o.description||'').replace(/'/g, "\\'")}')">✏️</button>
             <button class="act-btn del" onclick="deleteOwner(${o.id},'${o.name}')">✕</button>
           </div>
         </div>
@@ -1597,7 +1602,12 @@ async function loadOwners() {
           </div>
         </div>
       </div>`).join('');
-  } catch(e) { console.error(e); }
+    console.log('[Owners] Rendered', owners.length, 'owners');
+  } catch(e) {
+    console.error('[Owners] Error:', e);
+    const grid = document.getElementById('owner-grid');
+    if (grid) grid.innerHTML = '<div class="empty" style="grid-column:1/-1;color:#ff4d6d">Failed to load owners. Check console for details.</div>';
+  }
 }
 
 async function loadStrategies() {
@@ -2141,12 +2151,17 @@ async function executeBasket() {
 }
 
 function clearBasket() {
-  if (!_basket.length || confirm('Clear all basket legs?')) { 
-    _basket = []; 
-    renderBasketBar(); 
+  if (!_basket.length || confirm('Clear all basket legs?')) {
+    _basket = [];
+    renderBasketBar();
   }
 }
 function showBasketAlert(m) { showAlert(m); }
+
+// ══════════════════════════════════════════════════════
+// AUTO-INIT: Load owners & strategies on page load
+// ══════════════════════════════════════════════════════
+setTimeout(() => { loadOwners(); loadStrategies(); }, 500);
 </script>
 </body>
 </html>
