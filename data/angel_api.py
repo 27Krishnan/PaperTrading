@@ -11,8 +11,7 @@ class AngelOneAPI:
         self.auth_token = None
         self.feed_token = None
         self._connected = False
-        self._last_check_time = 0
-        self._status_ttl = 60  # seconds cache
+        self._monitoring = False
 
     def connect(self) -> bool:
         try:
@@ -25,8 +24,8 @@ class AngelOneAPI:
                 self.auth_token = data["data"]["jwtToken"]
                 self.feed_token = self.api.getfeedToken()
                 self._connected = True
-                self._last_check_time = time.time()
                 logger.info(f"Angel One connected | Client: {settings.ANGEL_CLIENT_ID}")
+                self.start_heartbeat()
                 return True
             else:
                 logger.error(f"Angel One login failed: {data['message']}")
@@ -35,30 +34,37 @@ class AngelOneAPI:
             logger.error(f"Angel One connection error: {e}")
             return False
 
+    def start_heartbeat(self):
+        """Starts a background thread to check session health every 60s"""
+        if self._monitoring:
+            return
+        self._monitoring = True
+        import threading
+
+        t = threading.Thread(
+            target=self._heartbeat_loop, daemon=True, name="AngelHeartbeat"
+        )
+        t.start()
+        logger.info("Angel One heartbeat monitor started")
+
+    def _heartbeat_loop(self):
+        while self._monitoring:
+            try:
+                if self._connected and self.api:
+                    # Quick LTP check to verify session is still alive
+                    result = self.api.ltpData("NSE", "Nifty 50", "99926000")
+                    if not result or not result.get("status"):
+                        logger.warning("Angel heartbeat failed, attempting reconnect...")
+                        self._try_reconnect()
+            except Exception as e:
+                logger.debug(f"Heartbeat error: {e}")
+            import time
+
+            time.sleep(60)
+
     def is_connected(self) -> bool:
-        """Check if connected, with lazy reconnect attempt and status caching"""
-        if not self._connected:
-            return False
-
-        # Use cache to avoid hitting Angel API too frequently (prevents dashboard flapping)
-        now = time.time()
-        if now - self._last_check_time < self._status_ttl:
-            return self._connected
-
-        # Verify session is actually alive by making a lightweight call
-        self._last_check_time = now
-        try:
-            if self.api:
-                # Quick LTP check to verify session
-                result = self.api.ltpData("NSE", "Nifty 50", "99926000")
-                if result and result.get("status"):
-                    return True
-        except Exception as e:
-            logger.debug(f"Session check error: {e}")
-
-        # Session may have expired, try reconnect
-        logger.warning("Angel One session expired, attempting reconnect...")
-        return self._try_reconnect()
+        """Returns the cached connection status (instant, non-blocking)"""
+        return self._connected
 
     def _try_reconnect(self) -> bool:
         """Reconnect with exponential backoff"""
