@@ -14,10 +14,24 @@ from loguru import logger
 _ocr_reader = None
 
 
+def is_ocr_available() -> bool:
+    """Check if EasyOCR is available and loaded"""
+    global _ocr_reader
+    if _ocr_reader is not None:
+        return True
+    try:
+        _get_reader()
+        return _ocr_reader is not None
+    except Exception as e:
+        logger.warning(f"EasyOCR check failed: {e}")
+        return False
+
+
 def _get_reader():
     global _ocr_reader
     if _ocr_reader is None:
         import easyocr
+
         logger.info("Loading EasyOCR model (first time may take 30 seconds)...")
         _ocr_reader = easyocr.Reader(["en"], gpu=False, verbose=False)
         logger.info("EasyOCR ready")
@@ -26,9 +40,16 @@ def _get_reader():
 
 def _extract_text_from_image(image_path: str) -> str:
     """Use EasyOCR to extract all text from a Telegram screenshot"""
+    import os
+
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Image file not found: {image_path}")
+
     reader = _get_reader()
     results = reader.readtext(image_path, detail=0, paragraph=True)
     text = "\n".join(results)
+    if not text.strip():
+        raise ValueError("No text detected in image")
     logger.debug(f"OCR extracted:\n{text}")
     return text
 
@@ -37,12 +58,21 @@ def _normalize(text: str) -> str:
     """Normalize common abbreviations and symbols"""
     text = text.upper().strip()
     replacements = {
-        "ABV": "ABOVE", "BLW": "BELOW", "BTW": "BELOW",
-        "TAR": "TARGET", "TGT": "TARGET", "T1": "TARGET1",
-        "T2": "TARGET2", "T3": "TARGET3",
-        "SLT": "SL", "STOPLOSS": "SL", "STOP LOSS": "SL",
-        "ENT": "ENTRY", "ENTER": "ENTRY",
-        "CE ": "CE ", "PE ": "PE ",
+        "ABV": "ABOVE",
+        "BLW": "BELOW",
+        "BTW": "BELOW",
+        "TAR": "TARGET",
+        "TGT": "TARGET",
+        "T1": "TARGET1",
+        "T2": "TARGET2",
+        "T3": "TARGET3",
+        "SLT": "SL",
+        "STOPLOSS": "SL",
+        "STOP LOSS": "SL",
+        "ENT": "ENTRY",
+        "ENTER": "ENTRY",
+        "CE ": "CE ",
+        "PE ": "PE ",
         "@": " AT ",
     }
     for k, v in replacements.items():
@@ -52,8 +82,20 @@ def _normalize(text: str) -> str:
 
 # ── Exchange detection ──────────────────────────────────────────────────────
 
-MCX_KEYWORDS = ["GOLD", "SILVER", "CRUDE", "CRUDEOIL", "NATURALGAS", "COPPER",
-                "ZINC", "ALUMINIUM", "LEAD", "NICKEL", "GOLDM", "SILVERM"]
+MCX_KEYWORDS = [
+    "GOLD",
+    "SILVER",
+    "CRUDE",
+    "CRUDEOIL",
+    "NATURALGAS",
+    "COPPER",
+    "ZINC",
+    "ALUMINIUM",
+    "LEAD",
+    "NICKEL",
+    "GOLDM",
+    "SILVERM",
+]
 INDEX_KEYWORDS = ["NIFTY", "BANKNIFTY", "SENSEX", "FINNIFTY", "MIDCPNIFTY", "BANKEX"]
 
 
@@ -88,8 +130,8 @@ FORMAT1_PATTERN = re.compile(
     r"\s+(?P<action>BUY|SELL|SHORT|LONG)"
     r"(?:\s+(?P<entry_type>ABOVE|BELOW|AT))?"
     r"\s+(?P<entry>[\d.]+)"
-    r"(?:.*?TARGET[S]?\s+(?P<targets>[\d.\s]+?))?"    # optional targets
-    r"(?:.*?SL\s+(?P<sl>[\d.]+))?",                   # optional sl
+    r"(?:.*?TARGET[S]?\s+(?P<targets>[\d.\s]+?))?"  # optional targets
+    r"(?:.*?SL\s+(?P<sl>[\d.]+))?",  # optional sl
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -141,6 +183,7 @@ def _parse_format1(text: str) -> dict | None:
 # LAURUSLABS APR 1100PE
 # ENTRY - 44 / SL - 36 / RISK - 7000
 
+
 def _parse_format2(text: str) -> dict | None:
     norm = text.upper().strip()
 
@@ -160,11 +203,15 @@ def _parse_format2(text: str) -> dict | None:
     symbol_line = lines[action_idx + 1] if action_idx + 1 < len(lines) else ""
 
     # Extract expiry from symbol line (e.g. APR, MAY, JUN)
-    expiry_m = re.search(r"\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b", symbol_line)
+    expiry_m = re.search(
+        r"\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b", symbol_line
+    )
     expiry = expiry_m.group(1) if expiry_m else None
 
     # Clean symbol
-    symbol = re.sub(r"\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b", "", symbol_line)
+    symbol = re.sub(
+        r"\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b", "", symbol_line
+    )
     symbol = re.sub(r"\s+", "", symbol).strip()
 
     # Entry
@@ -207,10 +254,17 @@ def _parse_format2(text: str) -> dict | None:
 
 # ── Public API ───────────────────────────────────────────────────────────────
 
-class SignalParser:
 
+class SignalParser:
     def parse_image(self, image_path: str) -> dict | None:
         """Parse a Telegram screenshot → trade signal dict (no API key needed)"""
+        # Check if OCR is available
+        if not is_ocr_available():
+            logger.error(
+                "EasyOCR not available - cannot parse images. Install torch, torchvision, easyocr"
+            )
+            return None
+
         path = Path(image_path)
         if not path.exists():
             logger.error(f"Image not found: {image_path}")
@@ -234,7 +288,9 @@ class SignalParser:
             if result:
                 if source_image:
                     result["signal_image_path"] = source_image
-                logger.info(f"Format1 parsed: {result['action']} {result['symbol']} @ {result['entry_price']}")
+                logger.info(
+                    f"Format1 parsed: {result['action']} {result['symbol']} @ {result['entry_price']}"
+                )
                 return result
 
         # Try structured format
@@ -242,7 +298,9 @@ class SignalParser:
         if result:
             if source_image:
                 result["signal_image_path"] = source_image
-            logger.info(f"Format2 parsed: {result['action']} {result['symbol']} @ {result['entry_price']}")
+            logger.info(
+                f"Format2 parsed: {result['action']} {result['symbol']} @ {result['entry_price']}"
+            )
             return result
 
         logger.warning(f"Could not parse signal from text:\n{text[:200]}")

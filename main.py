@@ -14,6 +14,7 @@ from loguru import logger
 # Force UTF-8 on Windows console to handle emoji in log messages
 if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf_8"):
     import io
+
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 logger.remove()
 logger.add(sys.stdout, format="{time:HH:mm:ss} | {level} | {message}", level="INFO")
@@ -29,20 +30,43 @@ async def lifespan(app: FastAPI):
     from data.market_feed import market_feed
     from scheduler.market_sessions import market_scheduler
     from config.settings import settings
+    from loguru import logger
 
     init_db()
     logger.info("Database ready")
 
+    # Check Angel One credentials and connect
     if settings.ANGEL_CLIENT_ID and settings.ANGEL_API_KEY:
         connected = angel_api.connect()
         if not connected:
             logger.warning("Angel One connection failed - running in offline mode")
+        else:
+            # Pre-cache instrument master for option chain
+            try:
+                from api.option_chain import load_master
+
+                logger.info("Loading instrument master...")
+                master = load_master()
+                logger.info(f"Instrument master cached: {len(master)} instruments")
+            except Exception as e:
+                logger.warning(f"Could not cache instrument master: {e}")
     else:
         logger.warning("Angel One credentials not configured - running in demo mode")
+
+    # Check EasyOCR availability
+    try:
+        from parsers.signal_parser import _get_reader
+
+        logger.info("Checking EasyOCR availability...")
+        reader = _get_reader()
+        logger.info("EasyOCR ready")
+    except Exception as e:
+        logger.warning(f"EasyOCR not available: {e}. Image parsing will use text only.")
 
     # Feed starts lazily on first trade subscription
     # Start LTP poller (REST fallback for PENDING/OPEN trades)
     from core.ltp_poller import ltp_poller
+
     ltp_poller.start()
 
     market_scheduler.start()
@@ -52,6 +76,7 @@ async def lifespan(app: FastAPI):
 
     # ── Shutdown ───────────────────────────────────────────────
     from core.ltp_poller import ltp_poller
+
     ltp_poller.stop()
     market_feed.stop()
     angel_api.disconnect()
@@ -61,11 +86,13 @@ async def lifespan(app: FastAPI):
 
 # Patch the app to use lifespan
 from api.main import app
+
 app.router.lifespan_context = lifespan
 
 
 if __name__ == "__main__":
     from config.settings import settings
+
     uvicorn.run(
         "main:app",
         host=settings.APP_HOST,

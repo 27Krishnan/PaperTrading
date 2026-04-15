@@ -27,16 +27,19 @@ class TrailingStopLoss:
         """
         if action.upper() == "BUY":
             return TrailingStopLoss._update_long(
-                ltp, current_sl, entry_price, trailing_points, highest_price or entry_price
+                ltp, current_sl, entry_price, trailing_points, 
+                highest_price or entry_price, lowest_price or entry_price
             )
         else:
             return TrailingStopLoss._update_short(
-                ltp, current_sl, entry_price, trailing_points, lowest_price or entry_price
+                ltp, current_sl, entry_price, trailing_points, 
+                lowest_price or entry_price, highest_price or entry_price
             )
 
     @staticmethod
     def _update_long(ltp: float, current_sl: float, entry_price: float,
-                     trailing_points: float, highest_price: float) -> tuple[float, float, float, bool]:
+                     trailing_points: float, highest_price: float,
+                     lowest_price: float) -> tuple[float, float, float, bool]:
         new_high = max(highest_price, ltp)
         new_sl = new_high - trailing_points
 
@@ -47,11 +50,12 @@ class TrailingStopLoss:
         if triggered:
             logger.info(f"Trailing SL triggered | LTP={ltp} | TSL={new_sl:.2f}")
 
-        return new_sl, new_high, highest_price, triggered
+        return new_sl, new_high, lowest_price, triggered
 
     @staticmethod
     def _update_short(ltp: float, current_sl: float, entry_price: float,
-                      trailing_points: float, lowest_price: float) -> tuple[float, float, float, bool]:
+                      trailing_points: float, lowest_price: float,
+                      highest_price: float) -> tuple[float, float, float, bool]:
         new_low = min(lowest_price, ltp)
         new_sl = new_low + trailing_points
 
@@ -62,7 +66,7 @@ class TrailingStopLoss:
         if triggered:
             logger.info(f"Trailing SL triggered (short) | LTP={ltp} | TSL={new_sl:.2f}")
 
-        return new_sl, lowest_price, new_low, triggered
+        return new_sl, highest_price, new_low, triggered
 
     @staticmethod
     def calculate_initial_trailing_points(entry: float, sl: float,
