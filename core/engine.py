@@ -35,6 +35,24 @@ class PaperTradingEngine:
         self._symbol_token_map: dict[str, str] = {}  # symbol → token
         self._token_to_trades: dict[str, list[int]] = defaultdict(list) # token → [trade_id]
         market_feed.add_callback(self._on_tick)
+        self._load_active_trades()
+
+    def _load_active_trades(self):
+        """Reload OPEN and PENDING trades from DB on engine startup"""
+        db = get_session()
+        try:
+            active = db.query(Trade).filter(
+                Trade.status.in_([TradeStatus.OPEN, TradeStatus.PENDING])
+            ).all()
+            for trade in active:
+                self._active_trades[trade.id] = trade
+                self._subscribe_symbol(trade)
+            if active:
+                logger.info(f"Engine recovered {len(active)} active trades from database")
+        except Exception as e:
+            logger.error(f"Error recovering active trades: {e}")
+        finally:
+            db.close()
 
     def _add_audit_log(self, trade: Trade, message: str, type: str = "INFO", ltp: float = None):
         """Append a timestamped event to the trade's audit log"""

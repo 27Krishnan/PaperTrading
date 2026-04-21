@@ -102,10 +102,16 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
         t for t in trades if t.status in [TradeStatus.OPEN, TradeStatus.PENDING]
     ]
     now_ist = get_now_ist()
-    today_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0).replace(tzinfo=None)
     
-    # Session stats for Signals tab
-    today_closed = [t for t in closed_trades if t.closed_at and t.closed_at.replace(tzinfo=None) >= today_start.replace(tzinfo=None)]
+    # Session stats for Signals tab - Defensive filtering
+    today_closed = []
+    for t in closed_trades:
+        if t.closed_at:
+            t_ref = t.closed_at.replace(tzinfo=None) if t.closed_at.tzinfo else t.closed_at
+            if t_ref >= today_start:
+                today_closed.append(t)
+    
     session_pnl = sum(t.gross_pnl or 0 for t in today_closed)
     
     owners = db.query(Owner).order_by(Owner.name).all()
@@ -121,7 +127,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
             "winning_trades": sum(1 for t in today_closed if (t.gross_pnl or 0) > 0),
             "owners": owners,
             "strategies": strategies,
-        },
+        }
     )
 
 
