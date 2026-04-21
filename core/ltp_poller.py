@@ -117,7 +117,7 @@ class LTPPoller:
     Also populates _symbol_token_map so WebSocket can subscribe.
     """
 
-    def __init__(self, interval: int = 30):
+    def __init__(self, interval: int = 5):
         self.interval = interval
         self._running = False
         self._thread: threading.Thread | None = None
@@ -218,4 +218,4 @@ class LTPPoller:
 
 
 # Singleton
-ltp_poller = LTPPoller(interval=30)
+ltp_poller = LTPPoller(interval=5)

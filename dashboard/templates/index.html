@@ -1159,13 +1159,18 @@ async function refreshOpenPos() {
       }
       const pnlEl = document.getElementById('pnl-' + t.id);
       if (pnlEl && t.ltp != null) {
-        const entry = parseFloat(pnlEl.dataset.entry);
-        const qty   = parseInt(pnlEl.dataset.qty);
-        const mult  = pnlEl.dataset.action === 'BUY' ? 1 : -1;
-        const pnl   = mult * (t.ltp - entry) * qty;
-        totalUnrealized += pnl;
-        pnlEl.textContent = fmt(pnl);
-        pnlEl.className = 'ltp-cell ' + (pnl > 0 ? 'ltp-up' : pnl < 0 ? 'ltp-dn' : 'ltp-neu');
+        if (t.status === 'PENDING') {
+          pnlEl.textContent = '—';
+          pnlEl.className = 'ltp-cell ltp-neu';
+        } else {
+          const entry = parseFloat(pnlEl.dataset.entry);
+          const qty   = parseInt(pnlEl.dataset.qty);
+          const mult  = pnlEl.dataset.action === 'BUY' ? 1 : -1;
+          const pnl   = mult * (t.ltp - entry) * qty;
+          totalUnrealized += pnl;
+          pnlEl.textContent = fmt(pnl);
+          pnlEl.className = 'ltp-cell ' + (pnl > 0 ? 'ltp-up' : pnl < 0 ? 'ltp-dn' : 'ltp-neu');
+        }
       }
       const tslEl = document.getElementById('tsl-' + t.id);
       if (tslEl && t.trailing_sl) tslEl.textContent = t.trailing_sl.toFixed(2);
@@ -1222,8 +1227,8 @@ async function refreshSummary() {
   } catch(e) {}
 }
 refreshOpenPos(); refreshSummary();
-setInterval(refreshOpenPos, 5000);
-setInterval(refreshSummary, 30000);
+setInterval(refreshOpenPos, 3000);
+setInterval(refreshSummary, 10000);
 
 // ══════════════════════════════════════════════════════
 // MODIFY MODAL
@@ -1555,7 +1560,7 @@ async function closeAllIntraday() {
 }
 setInterval(() => {
   if (document.getElementById('tab-positions').classList.contains('active')) refreshPositions();
-}, 15000);
+}, 5000);
 
 // ══════════════════════════════════════════════════════
 // FUTURES
