@@ -101,8 +101,13 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     open_trades = [
         t for t in trades if t.status in [TradeStatus.OPEN, TradeStatus.PENDING]
     ]
-    closed_trades = [t for t in trades if t.status == TradeStatus.CLOSED]
-    total_pnl = sum(t.gross_pnl or 0 for t in closed_trades)
+    now_ist = get_now_ist()
+    today_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Session stats for Signals tab
+    today_closed = [t for t in closed_trades if t.closed_at and t.closed_at.replace(tzinfo=None) >= today_start.replace(tzinfo=None)]
+    session_pnl = sum(t.gross_pnl or 0 for t in today_closed)
+    
     owners = db.query(Owner).order_by(Owner.name).all()
     strategies = db.query(Strategy).order_by(Strategy.name).all()
     return templates.TemplateResponse(
@@ -111,9 +116,9 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
             "request": request,
             "open_trades": open_trades,
             "closed_trades": closed_trades[:20],
-            "total_pnl": total_pnl,
-            "total_trades": len(closed_trades),
-            "winning_trades": sum(1 for t in closed_trades if (t.gross_pnl or 0) > 0),
+            "total_pnl": session_pnl,
+            "total_trades": len(today_closed),
+            "winning_trades": sum(1 for t in today_closed if (t.gross_pnl or 0) > 0),
             "owners": owners,
             "strategies": strategies,
         },
@@ -679,10 +684,20 @@ async def portfolio_summary(db: Session = Depends(get_db)):
         .all()
     )
 
+    realized_pnl = sum(t.gross_pnl or 0 for t in closed)
+    
     now_ist = get_now_ist()
     today_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    today_closed = [t for t in closed if t.closed_at >= today_start]
+    # Safe comparison handling naive/aware datetimes
+    today_closed = []
+    start_naive = today_start.replace(tzinfo=None)
+    for t in closed:
+        if t.closed_at:
+            t_ref = t.closed_at.replace(tzinfo=None) if t.closed_at.tzinfo else t.closed_at
+            if t_ref >= start_naive:
+                today_closed.append(t)
+                
     today_realized = sum(t.gross_pnl or 0 for t in today_closed)
     today_winners = sum(1 for t in today_closed if (t.gross_pnl or 0) > 0)
 
