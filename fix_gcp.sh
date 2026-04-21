@@ -16,9 +16,16 @@ echo ""
 
 # 1. Find the app directory
 echo -e "${GREEN}[1/8] Finding app directory...${NC}"
-APP_DIR=$(find /home -name "main.py" -path "*/PaperTrading/*" 2>/dev/null | head -1 | xargs dirname)
-if [ -z "$APP_DIR" ]; then
-    APP_DIR="/home/debian/PaperTrading"
+# Primary guess: current directory if main.py is here
+if [ -f "main.py" ]; then
+    APP_DIR=$(pwd)
+else
+    # Secondary guess: look for PaperTrading/main.py
+    APP_DIR=$(find /home -maxdepth 3 -name "main.py" -path "*/PaperTrading/*" 2>/dev/null | head -1 | xargs dirname)
+fi
+
+if [ -z "$APP_DIR" ] || [ "$APP_DIR" = "." ]; then
+    APP_DIR="/home/$(whoami)/PaperTrading"
 fi
 echo "  -> App directory: $APP_DIR"
 
@@ -114,6 +121,17 @@ if [ -n "$STALE_UVICORN_PIDS" ]; then
     sleep 2
 fi
 if systemctl is-active --quiet papertrading 2>/dev/null; then
+    # Verify/Fix service file path if user differs
+    SERVICE_FILE="/etc/systemd/system/papertrading.service"
+    if [ -f "$SERVICE_FILE" ]; then
+        EXPECTED_USER=$(whoami)
+        if grep -q "User=debian" "$SERVICE_FILE" && [ "$EXPECTED_USER" != "debian" ]; then
+             echo -e "${YELLOW}  -> Updating service user/paths from debian to $EXPECTED_USER...${NC}"
+             sudo sed -i "s|/home/debian/PaperTrading|$APP_DIR|g" "$SERVICE_FILE"
+             sudo sed -i "s|User=debian|User=$EXPECTED_USER|g" "$SERVICE_FILE"
+             sudo systemctl daemon-reload
+        fi
+    fi
     sudo systemctl restart papertrading 2>/dev/null
     echo -e "${GREEN}  -> Restarted via systemd${NC}"
 elif command -v pm2 &>/dev/null && pm2 list 2>/dev/null | grep -q "paper"; then
