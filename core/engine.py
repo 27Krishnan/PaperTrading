@@ -46,9 +46,24 @@ class PaperTradingEngine:
             ).all()
             for trade in active:
                 self._active_trades[trade.id] = trade
-                self._subscribe_symbol(trade)
+                
+                # RE-POPULATE mappings so _on_tick finds these trades
+                symbol = trade.symbol
+                token = self._symbol_token_map.get(symbol)
+                if not token:
+                    token = angel_api.get_token(trade.exchange, symbol)
+                    if token:
+                        self._symbol_token_map[symbol] = token
+                
+                if token:
+                    if trade.id not in self._token_to_trades[token]:
+                        self._token_to_trades[token].append(trade.id)
+                    market_feed.subscribe(token, symbol, trade.exchange)
+
             if active:
                 logger.info(f"Engine recovered {len(active)} active trades from database")
+                if not market_feed._running:
+                    market_feed.start()
         except Exception as e:
             logger.error(f"Error recovering active trades: {e}")
         finally:
