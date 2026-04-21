@@ -299,23 +299,23 @@
     <!-- Summary cards -->
     <div class="cards">
       <div class="card">
-        <div class="lbl">Realized P&L</div>
+        <div class="lbl">Session Realized</div>
         <div class="val {% if total_pnl >= 0 %}green{% else %}red{% endif %}" id="card-realized">₹{{ "{:,.0f}".format(total_pnl) }}</div>
       </div>
       <div class="card">
-        <div class="lbl">Unrealized P&L</div>
+        <div class="lbl">Live Unrealized</div>
         <div class="val yellow" id="card-unrealized">—</div>
       </div>
       <div class="card" style="border-color:#00d4aa33">
-        <div class="lbl" style="color:#00d4aa88">Total P&L</div>
+        <div class="lbl" style="color:#00d4aa88">Session Total</div>
         <div class="val green" id="card-total">₹{{ "{:,.0f}".format(total_pnl) }}</div>
       </div>
       <div class="card">
-        <div class="lbl">Trades</div>
+        <div class="lbl">Session Trades</div>
         <div class="val blue" id="card-trades">{{ total_trades }}</div>
       </div>
       <div class="card">
-        <div class="lbl">Win Rate</div>
+        <div class="lbl">Session Win Rate</div>
         <div class="val yellow" id="card-winrate">{% if total_trades > 0 %}{{ "{:.1f}".format(winning_trades/total_trades*100) }}%{% else %}—{% endif %}</div>
       </div>
       <div class="card">
@@ -1220,10 +1220,10 @@ function updateTotalCard(unrealized) {
 async function refreshSummary() {
   try {
     const s = await fetch('/api/portfolio/summary').then(r => r.json());
-    _realizedPnl = s.realized_pnl;
-    setCard('card-realized', fmt(s.realized_pnl), s.realized_pnl >= 0 ? 'green' : 'red');
-    setCard('card-trades', s.total_trades, 'blue');
-    setCard('card-winrate', s.total_trades > 0 ? s.win_rate.toFixed(1) + '%' : '—', 'yellow');
+    _realizedPnl = s.today_realized_pnl;
+    setCard('card-realized', fmt(s.today_realized_pnl), s.today_realized_pnl >= 0 ? 'green' : 'red');
+    setCard('card-trades', s.today_trades_count, 'blue');
+    setCard('card-winrate', s.today_trades_count > 0 ? s.today_win_rate.toFixed(1) + '%' : '—', 'yellow');
   } catch(e) {}
 }
 refreshOpenPos(); refreshSummary();

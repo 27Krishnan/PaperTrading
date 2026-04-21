@@ -264,17 +264,29 @@ class PaperTradingEngine:
         except Exception:
             pass  # Telegram optional
 
-    def close_all_intraday(self):
+    def close_all_intraday(self, exchange: str = None):
         """Close all open intraday positions (called at session end)"""
         db = get_session()
         try:
             for trade_id, trade in list(self._active_trades.items()):
                 trade = db.merge(trade)
-                if trade.trade_type == "INTRADAY" and trade.status == TradeStatus.OPEN:
-                    symbol = trade.symbol
-                    token = self._symbol_token_map.get(symbol)
-                    ltp = market_feed.get_ltp(token) if token else trade.entry_price
-                    self._close_trade(trade, ltp or trade.entry_price, "SESSION_END", db)
+                
+                # Filter by Intraday first
+                if trade.trade_type != "INTRADAY":
+                    continue
+                    
+                # Filter by Status
+                if trade.status != TradeStatus.OPEN:
+                    continue
+                    
+                # Optional Exchange Filter
+                if exchange and trade.exchange.upper() != exchange.upper():
+                    continue
+
+                symbol = trade.symbol
+                token = self._symbol_token_map.get(symbol)
+                ltp = market_feed.get_ltp(token) if token else trade.entry_price
+                self._close_trade(trade, ltp or trade.entry_price, "SESSION_END", db)
             db.commit()
         finally:
             db.close()

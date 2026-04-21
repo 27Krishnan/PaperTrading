@@ -679,7 +679,12 @@ async def portfolio_summary(db: Session = Depends(get_db)):
         .all()
     )
 
-    realized_pnl = sum(t.gross_pnl or 0 for t in closed)
+    now_ist = get_now_ist()
+    today_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    today_closed = [t for t in closed if t.closed_at >= today_start]
+    today_realized = sum(t.gross_pnl or 0 for t in today_closed)
+    today_winners = sum(1 for t in today_closed if (t.gross_pnl or 0) > 0)
 
     unrealized_pnl = 0.0
     for t in open_trades:
@@ -697,6 +702,9 @@ async def portfolio_summary(db: Session = Depends(get_db)):
         "realized_pnl": round(realized_pnl, 2),
         "unrealized_pnl": round(unrealized_pnl, 2),
         "total_pnl": round(total_pnl, 2),
+        "today_realized_pnl": round(today_realized, 2),
+        "today_trades_count": len(today_closed),
+        "today_win_rate": round(today_winners / len(today_closed) * 100, 1) if today_closed else 0,
         "total_trades": len(closed),
         "open_trades": len(open_trades),
         "winning_trades": winners,
