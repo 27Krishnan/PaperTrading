@@ -165,8 +165,15 @@ def build_chain(instruments: list[dict], ltp_map: dict[str, float], spot: float)
     strikes: dict[float, dict] = {}
     for inst in instruments:
         strike = float(inst.get("strike", 0)) / 100.0  # Angel One stores strike * 100
+        sym_upper = inst.get("symbol", "").upper()
+        if sym_upper.endswith("CE"):
+            itype = "CE"
+        elif sym_upper.endswith("PE"):
+            itype = "PE"
+        else:
+            continue # ignore non-expiry tokens if any
+        
         token = str(inst.get("token", ""))
-        itype = "CE" if inst.get("symbol", "").endswith("CE") else "PE"
         ltp = ltp_map.get(token, 0.0)
 
         if strike not in strikes:

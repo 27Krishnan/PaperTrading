@@ -12,9 +12,10 @@ Flow:
    d. Check Targets → update SL to breakeven/T1, close if final target hit
 5. End-of-session → close remaining intraday positions
 """
-
+import json
 from datetime import datetime
 from typing import Optional
+from collections import defaultdict
 from sqlalchemy.orm import Session
 from database.models import Trade, TradeStatus
 from database.db import get_session
@@ -23,6 +24,7 @@ from data.angel_api import angel_api
 from strategies.trailing_sl import TrailingStopLoss
 from strategies.trailing_profit import TrailingProfit
 from scheduler.market_sessions import get_exchange_for_symbol
+from core.utils import get_now_ist
 from loguru import logger
 
 
@@ -31,7 +33,25 @@ class PaperTradingEngine:
     def __init__(self):
         self._active_trades: dict[int, Trade] = {}  # trade_id → Trade
         self._symbol_token_map: dict[str, str] = {}  # symbol → token
+        self._token_to_trades: dict[str, list[int]] = defaultdict(list) # token → [trade_id]
         market_feed.add_callback(self._on_tick)
+
+    def _add_audit_log(self, trade: Trade, message: str, type: str = "INFO", ltp: float = None):
+        """Append a timestamped event to the trade's audit log"""
+        log_entry = {
+            "time": get_now_ist().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+            "type": type,
+            "msg": message,
+            "ltp": ltp
+        }
+        
+        try:
+            logs = json.loads(trade.audit_log) if trade.audit_log else []
+        except:
+            logs = []
+            
+        logs.append(log_entry)
+        trade.audit_log = json.dumps(logs)
 
     def add_trade(self, signal: dict, lot_size: int = 1,
                   trailing_sl_points: float = None,
@@ -84,7 +104,9 @@ class PaperTradingEngine:
                 status=TradeStatus.PENDING,
                 signal_source=signal.get("source_channel"),
                 raw_signal=signal.get("raw_text"),
+                target_idx=0,
             )
+            self._add_audit_log(trade, f"Signal Received: {action} {trade.symbol} @ {entry or 'Market'}. Type: {trade.entry_type}. SL: {sl}. T1: {targets[0] if targets else 'None'}", type="RECEIVED")
             db.add(trade)
             db.commit()
             db.refresh(trade)
@@ -111,6 +133,7 @@ class PaperTradingEngine:
             token = angel_api.get_token(trade.exchange, symbol)
             if token:
                 self._symbol_token_map[symbol] = token
+                self._token_to_trades[token].append(trade.id)
                 market_feed.subscribe(token, symbol, trade.exchange)
                 # Start/restart feed now that we have a subscription
                 if not market_feed._running:
@@ -143,21 +166,26 @@ class PaperTradingEngine:
 
     def _on_tick(self, token: str, ltp: float, tick_data: dict):
         """Called on every tick from WebSocket"""
-        for trade_id, trade in list(self._active_trades.items()):
-            symbol = trade.symbol
-            if self._symbol_token_map.get(symbol) != token:
-                continue
+        trade_ids = self._token_to_trades.get(token, [])
+        for trade_id in list(trade_ids):
             self.process_ltp(trade_id, ltp)
 
     def _check_entry(self, trade: Trade, ltp: float, db: Session):
         triggered = TrailingProfit.check_entry_trigger(
             trade.action, ltp, trade.entry_price, trade.entry_type
         )
+        
+        if not triggered and trade.status == TradeStatus.PENDING:
+            # Periodically log "Waiting" if ltp moves significantly or first check
+            pass # Skipping verbose tick logs to keep audit clean
+
         if triggered:
             trade.status = TradeStatus.OPEN
-            trade.entry_triggered_at = datetime.now()
+            trade.entry_triggered_at = get_now_ist()
             trade.highest_price = ltp if trade.action == "BUY" else trade.highest_price
             trade.lowest_price = ltp if trade.action == "SELL" else trade.lowest_price
+            msg = f"Order Executed @ {ltp:.2f}. Condition met for {trade.entry_type} {trade.entry_price}"
+            self._add_audit_log(trade, msg, type="EXECUTED", ltp=ltp)
             logger.info(f"Trade #{trade.id} OPENED | {trade.action} {trade.symbol} @ {ltp}")
             self._notify(trade, f"ENTRY | {trade.action} {trade.symbol} @ {ltp:.2f}")
 
@@ -166,12 +194,17 @@ class PaperTradingEngine:
         targets = [t for t in [trade.target1, trade.target2, trade.target3] if t]
 
         # 1. Check target hits and move SL accordingly
-        current_target_idx = self._get_target_idx(trade)
+        current_target_idx = trade.target_idx or 0
         new_sl, new_target_idx, exit_reason = TrailingProfit.check_targets(
             action, ltp, trade.entry_price, targets, trade.trailing_sl or trade.stop_loss, current_target_idx
         )
         if new_sl != trade.trailing_sl:
+            old_sl = trade.trailing_sl or trade.stop_loss
             trade.trailing_sl = new_sl
+            self._add_audit_log(trade, f"SL Moved to {new_sl:.2f} due to Target Hit", type="LOGIC", ltp=ltp)
+        if new_target_idx != current_target_idx:
+            trade.target_idx = new_target_idx
+            self._add_audit_log(trade, f"Target {new_target_idx} Hit @ {ltp:.2f}", type="TARGET", ltp=ltp)
         if exit_reason:
             self._close_trade(trade, ltp, exit_reason, db)
             return exit_reason
@@ -186,6 +219,8 @@ class PaperTradingEngine:
                 highest_price=trade.highest_price,
                 lowest_price=trade.lowest_price,
             )
+            if new_tsl != trade.trailing_sl:
+                self._add_audit_log(trade, f"Trailing SL Ratchet: {trade.trailing_sl:.2f} -> {new_tsl:.2f}", type="TRAIL", ltp=ltp)
             trade.trailing_sl = new_tsl
             trade.highest_price = new_high
             trade.lowest_price = new_low
@@ -194,27 +229,20 @@ class PaperTradingEngine:
                 self._close_trade(trade, ltp, TradeStatus.TRAILING_SL_HIT, db)
                 return TradeStatus.TRAILING_SL_HIT
 
-        # 3. Check initial SL (skip if no SL set)
-        if trade.stop_loss and TrailingProfit.check_sl(action, ltp, trade.stop_loss):
+        # 3. Check protective SL (use the latest moved SL)
+        active_sl = trade.trailing_sl if trade.trailing_sl is not None else trade.stop_loss
+        if active_sl and TrailingProfit.check_sl(action, ltp, active_sl):
             self._close_trade(trade, ltp, TradeStatus.SL_HIT, db)
             return TradeStatus.SL_HIT
 
         return None
 
-    def _get_target_idx(self, trade: Trade) -> int:
-        """Determine which targets have already been passed based on trailing_sl vs stop_loss"""
-        if trade.trailing_sl and trade.trailing_sl > trade.stop_loss and trade.action == "BUY":
-            if trade.target2 and trade.trailing_sl >= trade.target1:
-                return 2
-            elif trade.target1 and trade.trailing_sl > trade.stop_loss:
-                return 1
-        return 0
-
     def _close_trade(self, trade: Trade, exit_price: float, reason: str, db: Session):
         trade.status = TradeStatus.CLOSED
         trade.exit_price = exit_price
         trade.exit_reason = reason
-        trade.closed_at = datetime.now()
+        trade.closed_at = get_now_ist()
+        self._add_audit_log(trade, f"Trade Closed: {reason}", type="CLOSED", ltp=exit_price)
 
         multiplier = 1 if trade.action == "BUY" else -1
         trade.gross_pnl = multiplier * (exit_price - trade.entry_price) * trade.quantity

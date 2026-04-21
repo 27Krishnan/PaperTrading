@@ -6,6 +6,7 @@ from typing import Callable
 from SmartApi.smartWebSocketV2 import SmartWebSocketV2
 from data.angel_api import angel_api
 from config.settings import settings
+from core.utils import get_now_ist
 from loguru import logger
 
 
@@ -105,7 +106,7 @@ class MarketFeed:
                     "symbol": self._subscriptions[token]["symbol"],
                     "exchange": self._subscriptions[token]["exchange"],
                     "ltp": ltp,
-                    "timestamp": datetime.now(),
+                    "timestamp": get_now_ist(),
                     "open": message.get("open_price_of_the_day", 0) / 100.0,
                     "high": message.get("high_price_of_the_day", 0) / 100.0,
                     "low": message.get("low_price_of_the_day", 0) / 100.0,

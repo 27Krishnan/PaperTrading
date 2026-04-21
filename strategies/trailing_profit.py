@@ -79,5 +79,10 @@ class TrailingProfit:
             return ltp >= entry_price
         elif entry_type == "BELOW":
             return ltp <= entry_price
+        elif entry_type == "LIMIT":
+            if action.upper() == "BUY":
+                return ltp <= entry_price
+            else:
+                return ltp >= entry_price
         else:
-            return True  # LIMIT or MARKET - triggered at creation
+            return True  # MARKET - triggered at creation

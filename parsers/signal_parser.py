@@ -156,8 +156,7 @@ def _parse_format1(text: str) -> dict | None:
     targets = []
     if m.group("targets"):
         targets = [float(x) for x in re.findall(r"[\d.]+", m.group("targets"))]
-
-    if not entry or not sl:
+    if entry is None or sl is None:
         return None
 
     return {
@@ -230,8 +229,7 @@ def _parse_format2(text: str) -> dict | None:
     targets = []
     for t_match in re.finditer(r"TARGET[\d]?[\s\-:]+(\d+\.?\d*)", norm):
         targets.append(float(t_match.group(1)))
-
-    if not entry or not sl:
+    if entry is None or sl is None:
         return None
 
     return {

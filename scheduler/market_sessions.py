@@ -121,12 +121,14 @@ class MarketScheduler:
         logger.info("Generating daily report...")
         db = get_session()
         try:
-            today = datetime.now(IST).strftime("%Y-%m-%d")
+            now = datetime.now(IST)
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             trades = db.query(Trade).filter(
-                Trade.closed_at >= today,
+                Trade.closed_at >= today_start,
                 Trade.status == TradeStatus.CLOSED
             ).all()
 
+            today_str = now.strftime("%Y-%m-%d")
             total = len(trades)
             winning = sum(1 for t in trades if t.gross_pnl and t.gross_pnl > 0)
             losing = sum(1 for t in trades if t.gross_pnl and t.gross_pnl <= 0)
@@ -134,7 +136,7 @@ class MarketScheduler:
             win_rate = (winning / total * 100) if total > 0 else 0
 
             report_text = (
-                f"\U0001F4CA Daily Report - {today}\n"
+                f"\U0001F4CA Daily Report - {today_str}\n"
                 f"Total Trades: {total}\n"
                 f"Winning: {winning} | Losing: {losing}\n"
                 f"Win Rate: {win_rate:.1f}%\n"

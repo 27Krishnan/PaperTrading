@@ -39,6 +39,15 @@ source venv/bin/activate
 pip install --upgrade pip > /dev/null 2>&1
 pip install -r requirements.txt > /dev/null 2>&1
 
+# Force the app to use port 8000 if .env exists
+if [ -f "$APP_DIR/.env" ]; then
+    if grep -q '^APP_PORT=' "$APP_DIR/.env"; then
+        sed -i 's/^APP_PORT=.*/APP_PORT=8000/' "$APP_DIR/.env"
+    else
+        echo "APP_PORT=8000" >> "$APP_DIR/.env"
+    fi
+fi
+
 # 4. Create systemd service for 24/7 running
 echo "[4/7] Creating systemd service..."
 cat > /tmp/papertrading.service << 'EOF'
@@ -79,6 +88,15 @@ sudo systemctl status papertrading --no-pager -l | head -15
 
 echo ""
 echo "===== Deploy Complete ====="
-echo "Access your app at: http://$(curl -s ifconfig.me):8000"
+PUBLIC_IP=$(curl -s ifconfig.me 2>/dev/null || true)
+if [ -n "$PUBLIC_IP" ]; then
+    echo "Access on the VM: http://localhost:8000"
+    echo "Public access (requires a GCP firewall rule for tcp:8000): http://$PUBLIC_IP:8000"
+else
+    echo "Access on the VM: http://localhost:8000"
+    echo "Public access requires the VM external IP and a GCP firewall rule for tcp:8000"
+fi
+echo "If you want a Cloudflare tunnel URL, start one separately:"
+echo "  cloudflared tunnel --url http://localhost:8000"
 echo "Logs: tail -f $APP_DIR/logs/papertrading.log"
 echo "Manage: sudo systemctl {start|stop|restart|status} papertrading"

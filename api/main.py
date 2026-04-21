@@ -16,9 +16,8 @@ from database.db import get_db, init_db
 from database.models import Trade, TradeStatus, DailyReport, Owner, Strategy
 from parsers.signal_parser import signal_parser
 from core.engine import engine
+from core.utils import get_now_ist, IST
 from loguru import logger
-
-IST = pytz.timezone("Asia/Kolkata")
 
 app = FastAPI(title="Paper Trading System", version="1.0.0")
 
@@ -131,7 +130,7 @@ async def upload_signal_image(
     trailing_sl_points: float = None,
     trailing_method: str = "sl_distance",
 ):
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = get_now_ist().strftime("%Y%m%d_%H%M%S")
     ext = Path(file.filename).suffix or ".jpg"
     save_path = UPLOAD_DIR / f"signal_{timestamp}{ext}"
 
@@ -373,7 +372,7 @@ async def cancel_trade(trade_id: int, db: Session = Depends(get_db)):
         trade.status = TradeStatus.CLOSED
         trade.exit_price = ltp
         trade.exit_reason = "MANUAL_CLOSE"
-        trade.closed_at = datetime.now()
+        trade.closed_at = get_now_ist()
         mult = 1 if trade.action == "BUY" else -1
         trade.gross_pnl = mult * (ltp - trade.entry_price) * trade.quantity
     else:
@@ -730,7 +729,7 @@ async def system_status():
     except Exception:
         pass
 
-    now_ist = datetime.now(IST)
+    now_ist = get_now_ist()
     return {
         "angel_one": {
             "connected": angel_api.is_connected(),
@@ -766,10 +765,8 @@ async def health_check():
     from notifications.telegram_bot import telegram_bot
     from scheduler.market_sessions import is_market_open
     from database.db import engine as db_engine
-    import pytz
 
-    IST = pytz.timezone("Asia/Kolkata")
-    now_ist = datetime.now(IST)
+    now_ist = get_now_ist()
 
     # Check EasyOCR
     ocr_status = {"loaded": False, "error": None}

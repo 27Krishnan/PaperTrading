@@ -33,6 +33,16 @@ def run_migrations(engine) -> None:
                 "ALTER TABLE trades ADD COLUMN strategy VARCHAR(100)"
             )
 
+        if "target_idx" not in existing:
+            pending.append(
+                "ALTER TABLE trades ADD COLUMN target_idx INTEGER DEFAULT 0"
+            )
+
+        if "audit_log" not in existing:
+            pending.append(
+                "ALTER TABLE trades ADD COLUMN audit_log TEXT"
+            )
+
         for sql in pending:
             try:
                 conn.execute(text(sql))

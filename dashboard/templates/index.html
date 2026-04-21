@@ -242,6 +242,27 @@
     .template-chip{display:flex;align-items:center;justify-content:space-between;background:#0e0e18;border-radius:5px;padding:6px 10px;font-size:12px;cursor:pointer;border:1px solid #1a1a30;transition:.15s;}
     .template-chip:hover{border-color:#a78bfa;}
     .basket-result-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #1a1a30;}
+    
+    /* ═══ AUDIT TIMELINE ═══ */
+    .audit-modal{width:600px !important;}
+    .audit-tl{list-style:none;padding:10px 0;position:relative;margin-left:20px;}
+    .audit-tl::before{content:'';position:absolute;left:-16px;top:0;bottom:0;width:2px;background:#1a1a35;}
+    .audit-item{position:relative;margin-bottom:18px;padding-left:14px;}
+    .audit-item::before{content:'';position:absolute;left:-20px;top:4px;width:10px;height:10px;border-radius:50%;background:#444;border:2px solid #12121f;z-index:2;}
+    .audit-item.RECEIVED::before{background:#6c9eff;}
+    .audit-item.EXECUTED::before{background:#00d4aa;box-shadow:0 0 8px #00d4aa66;}
+    .audit-item.CLOSED::before{background:#ff4d6d;}
+    .audit-item.TARGET::before{background:#ffd166;}
+    .audit-time{display:block;font-size:10px;color:#555;margin-bottom:2px;font-family:monospace;}
+    .audit-msg{font-size:13px;color:#dde;line-height:1.4;}
+    .audit-ltp{display:inline-block;margin-left:6px;font-size:11px;color:#00d4aa;font-weight:700;background:#002e22;padding:0 5px;border-radius:4px;}
+    .audit-badge{font-size:9px;text-transform:uppercase;font-weight:900;padding:1px 5px;border-radius:4px;margin-right:6px;}
+    .ab-RECEIVED{background:#6c9eff33;color:#6c9eff;}
+    .ab-EXECUTED{background:#00d4aa33;color:#00d4aa;}
+    .ab-CLOSED{background:#ff4d6d33;color:#ff4d6d;}
+    .ab-LOGIC{background:#1a1a35;color:#888;}
+    .ab-TARGET{background:#ffd16633;color:#ffd166;}
+    .ab-TRAIL{background:#1a1030;color:#a78bfa;}
   </style>
 </head>
 <body>
@@ -392,6 +413,7 @@
             <td style="font-size:11px;color:#888">{{ t.strategy or "—" }}</td>
             <td><span class="sbadge s-{{ t.status }}" id="st-{{ t.id }}">{{ t.status }}</span></td>
             <td style="white-space:nowrap">
+              <button class="act-btn edit" style="padding:2px 6px" onclick="showAuditLog({{ t.id }})">📜</button>
               <button class="act-btn edit" onclick="openModify({{ t.id }},{{ t.entry_price }},{{ t.stop_loss }},{{ t.trailing_sl or t.stop_loss }},{{ t.trailing_sl_points or 0 }},{{ t.target1 or 0 }},{{ t.target2 or 0 }})">✏️</button>
               <button class="act-btn del" onclick="deleteTrade({{ t.id }})">✕</button>
             </td>
@@ -431,6 +453,7 @@
             </td>
             <td class="{{ 'green' if (t.gross_pnl or 0)>=0 else 'red' }}" style="font-weight:700">
               {% if t.gross_pnl %}{{ "{:+,.0f}".format(t.gross_pnl) }}{% else %}—{% endif %}
+              <button class="act-btn edit" style="padding:1px 4px;font-size:9px;margin-left:4px" onclick="showAuditLog({{ t.id }})">📜</button>
             </td>
             <td><span class="sbadge s-{{ t.exit_reason or t.status }}">{{ t.exit_reason or t.status }}</span></td>
             <td>{% if t.owner %}<span style="background:{{ t.owner.color }}22;color:{{ t.owner.color }};padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">{{ t.owner.name }}</span>{% else %}<span style="color:#333">—</span>{% endif %}</td>
@@ -909,7 +932,67 @@
   </div>
 </div>
 
+<!-- ══ AUDIT MODAL ════════════════════════════════ -->
+<div class="modal-bg" id="audit-modal">
+  <div class="modal audit-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #1a1a35;padding-bottom:10px;">
+        <h3 id="audit-title" style="margin:0">📜 Order Audit Log</h3>
+        <button class="btn cancel" style="padding:4px 10px;font-size:11px" onclick="document.getElementById('audit-modal').classList.remove('show')">Close</button>
+    </div>
+    <div id="audit-body">
+        <div class="empty">Loading log...</div>
+    </div>
+  </div>
+</div>
+
 <script>
+// ══ AUDIT LOG HANDLER ══
+async function showAuditLog(id) {
+    const modal = document.getElementById('audit-modal');
+    const body = document.getElementById('audit-body');
+    const title = document.getElementById('audit-title');
+    title.textContent = `📜 Order Audit Log #${id}`;
+    body.innerHTML = '<div class="empty"><span class="loader"></span>Fetching timeline...</div>';
+    modal.classList.add('show');
+    
+    try {
+        const res = await fetch(`/api/trades/${id}`);
+        const t = await res.json();
+        if (!t.audit_log) {
+            body.innerHTML = '<div class="empty">No audit logs found for this trade.</div>';
+            return;
+        }
+        const logs = JSON.parse(t.audit_log);
+        body.innerHTML = `
+            <div style="background:#0b0b14;padding:12px;border-radius:8px;margin-bottom:15px;border:1px solid #1a1a35;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#888">
+                    <span>${t.action} ${t.symbol}</span>
+                    <span>Qty: ${t.quantity}</span>
+                    <span class="sbadge s-${t.status}">${t.status}</span>
+                </div>
+            </div>
+            <div class="audit-tl">
+                ${logs.reverse().map(l => `
+                    <div class="audit-item ${l.type}">
+                        <span class="audit-time">${l.time}</span>
+                        <div class="audit-msg">
+                            <span class="audit-badge ab-${l.type}">${l.type}</span>
+                            ${l.msg}
+                            ${l.ltp ? `<span class="audit-ltp">LTP: ${l.ltp.toFixed(2)}</span>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch(e) {
+        body.innerHTML = `<div class="empty" style="color:#ff4d6d">Failed to load log: ${e.message}</div>`;
+    }
+}
+document.getElementById('audit-modal').addEventListener('click', e => { 
+    if(e.target === document.getElementById('audit-modal')) 
+        document.getElementById('audit-modal').classList.remove('show'); 
+});
+
 // ══════════════════════════════════════════════════════
 // TAB SWITCHING
 // ══════════════════════════════════════════════════════
@@ -1437,6 +1520,7 @@ async function refreshPositions() {
           <td>${ownerBadge(t)}</td>
           <td style="font-size:11px;color:#888">${t.strategy||'—'}</td>
           <td><span class="sbadge s-${t.status}">${t.status}</span></td>
+          <td><button class="act-btn edit" style="padding:2px 6px" onclick="showAuditLog(${t.id})">📜</button></td>
         </tr>`).join('')}</tbody>
       </table></div>` : '<div class="empty">No open positions</div>';
 
@@ -1455,7 +1539,10 @@ async function refreshPositions() {
           <td>${ownerBadge(t)}</td>
           <td style="font-size:11px;color:#888">${t.strategy||'—'}</td>
           <td style="font-size:11px;color:#6c9eff">${fmtTime(t.entry_triggered_at)}</td>
-          <td style="font-size:11px;color:#ff4d6d">${fmtDateTime(t.closed_at)}</td>
+          <td style="font-size:11px;color:#ff4d6d">
+            ${fmtDateTime(t.closed_at)}
+            <button class="act-btn edit" style="padding:1px 4px;font-size:9px;margin-left:4px" onclick="showAuditLog(${t.id})">📜</button>
+          </td>
         </tr>`).join('')}</tbody>
       </table></div>` : '<div class="empty">No closed trades</div>';
   } catch(e) { console.error(e); }

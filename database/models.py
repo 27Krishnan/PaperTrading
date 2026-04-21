@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
+from core.utils import get_now_ist
 
 Base = declarative_base()
 
@@ -31,7 +32,7 @@ class Owner(Base):
     name = Column(String(100), nullable=False, unique=True)
     color = Column(String(20), default="#6c9eff")       # hex colour tag
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=get_now_ist)
 
     strategies = relationship("Strategy", back_populates="owner", cascade="all, delete-orphan")
     trades = relationship("Trade", back_populates="owner")
@@ -46,7 +47,7 @@ class Strategy(Base):
     name = Column(String(100), nullable=False)
     owner_id = Column(Integer, ForeignKey("owners.id", ondelete="SET NULL"), nullable=True)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=get_now_ist)
 
     owner = relationship("Owner", back_populates="strategies")
 
@@ -99,13 +100,15 @@ class Trade(Base):
     signal_image_path = Column(String(255), nullable=True)
     raw_signal = Column(Text, nullable=True)
     strategy = Column(String(100), nullable=True)          # Strategy name / tag
+    target_idx = Column(Integer, default=0)                # Tracks which target was last hit
+    audit_log = Column(Text, nullable=True)                # JSON event history
 
     # Owner assignment
     owner_id = Column(Integer, ForeignKey("owners.id", ondelete="SET NULL"), nullable=True)
     owner = relationship("Owner", back_populates="trades")
 
-    created_at = Column(DateTime, default=datetime.now)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = Column(DateTime, default=get_now_ist)
+    updated_at = Column(DateTime, default=get_now_ist, onupdate=get_now_ist)
 
 
 # ─── Portfolio ────────────────────────────────────────────────────────────────
@@ -114,7 +117,7 @@ class Portfolio(Base):
     __tablename__ = "portfolio"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    date = Column(DateTime, default=datetime.now)
+    date = Column(DateTime, default=get_now_ist)
     total_capital = Column(Float, nullable=False)
     available_capital = Column(Float, nullable=False)
     used_margin = Column(Float, default=0.0)
@@ -138,7 +141,7 @@ class DailyReport(Base):
     win_rate = Column(Float, default=0.0)
     starting_capital = Column(Float, nullable=False)
     ending_capital = Column(Float, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=get_now_ist)
 
 
 # ─── TickData ─────────────────────────────────────────────────────────────────

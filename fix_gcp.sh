@@ -29,6 +29,19 @@ fi
 
 cd "$APP_DIR"
 
+# Force the app config to use only port 8000
+echo -e "${GREEN}[0] Enforcing APP_PORT=8000 in .env...${NC}"
+if [ -f "$APP_DIR/.env" ]; then
+    if grep -q '^APP_PORT=' "$APP_DIR/.env"; then
+        sed -i 's/^APP_PORT=.*/APP_PORT=8000/' "$APP_DIR/.env"
+    else
+        echo "APP_PORT=8000" >> "$APP_DIR/.env"
+    fi
+    echo -e "${GREEN}  -> .env updated to APP_PORT=8000${NC}"
+else
+    echo -e "${YELLOW}  -> .env not found, skipping port override${NC}"
+fi
+
 # 2. Check git status
 echo -e "${GREEN}[2/8] Checking git version...${NC}"
 CURRENT_COMMIT=$(git log --oneline -1 2>/dev/null || echo "Not a git repo")
@@ -67,6 +80,11 @@ else
     echo -e "${RED}  -> App is NOT running!${NC}"
 fi
 
+OLD_PORT_PIDS=$(pgrep -f "uvicorn.*2583" 2>/dev/null || true)
+if [ -n "$OLD_PORT_PIDS" ]; then
+    echo -e "${YELLOW}  -> Found stale app process(es) on port 2583: $OLD_PORT_PIDS${NC}"
+fi
+
 # 6. Check service manager
 echo -e "${GREEN}[6/8] Checking service manager...${NC}"
 if systemctl is-active --quiet papertrading 2>/dev/null; then
@@ -89,6 +107,12 @@ fi
 
 # 8. Restart the app
 echo -e "${GREEN}[8/8] Restarting app...${NC}"
+STALE_UVICORN_PIDS=$(pgrep -f "uvicorn.*main:app" 2>/dev/null || true)
+if [ -n "$STALE_UVICORN_PIDS" ]; then
+    echo -e "${YELLOW}  -> Stopping existing uvicorn instance(s): $STALE_UVICORN_PIDS${NC}"
+    echo "$STALE_UVICORN_PIDS" | xargs -r kill 2>/dev/null || true
+    sleep 2
+fi
 if systemctl is-active --quiet papertrading 2>/dev/null; then
     sudo systemctl restart papertrading 2>/dev/null
     echo -e "${GREEN}  -> Restarted via systemd${NC}"
@@ -126,8 +150,19 @@ else
     echo -e "${RED}❌ App is NOT responding (HTTP $RESPONSE)${NC}"
 fi
 
+PUBLIC_IP=$(curl -s ifconfig.me 2>/dev/null || true)
+
 echo ""
 echo -e "${YELLOW}============================================${NC}"
-echo -e "${YELLOW}  DONE - Refresh your browser now!${NC}"
-echo -e "${YELLOW}  URL: https://favors-wales-models-received.trycloudflare.com${NC}"
+echo -e "${YELLOW}  ACCESS INFO${NC}"
+if pgrep -f "cloudflared" >/dev/null 2>&1; then
+    echo -e "${GREEN}  cloudflared is running, but this script cannot safely guess the current trycloudflare URL.${NC}"
+    echo -e "${YELLOW}  Check the cloudflared startup logs for the live public URL.${NC}"
+else
+    echo -e "${YELLOW}  No active Cloudflare tunnel detected.${NC}"
+fi
+if [ -n "$PUBLIC_IP" ]; then
+    echo -e "${YELLOW}  VM URL: http://$PUBLIC_IP:8000${NC}"
+fi
+echo -e "${YELLOW}  Note: GCP also needs an ingress firewall rule allowing tcp:8000.${NC}"
 echo -e "${YELLOW}============================================${NC}"
