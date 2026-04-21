@@ -902,4 +902,5 @@ def _trade_dict(t: Trade) -> dict:
         if t.entry_triggered_at
         else None,
         "closed_at": t.closed_at.isoformat() if t.closed_at else None,
+        "audit_log": t.audit_log,
     }
