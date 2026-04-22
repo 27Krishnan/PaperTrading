@@ -154,7 +154,8 @@ fi
 
 # Final check
 echo ""
-sleep 3
+echo "Waiting 15 seconds for EasyOCR and server to start..."
+sleep 15
 echo -e "${YELLOW}============================================${NC}"
 echo -e "${YELLOW}  FINAL STATUS${NC}"
 echo -e "${YELLOW}============================================${NC}"
