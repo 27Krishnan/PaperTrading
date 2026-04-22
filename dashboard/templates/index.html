@@ -1100,30 +1100,22 @@ async function updateStatus() {
 updateStatus(); setInterval(updateStatus, 10000);
 
 // ══════════════════════════════════════════════════════
-// PASTE HANDLER
-// ══════════════════════════════════════════════════════
-document.addEventListener('paste', (e) => {
-  const items = Array.from(e.clipboardData?.items || []);
-  const imgItem = items.find(i => i.type.startsWith('image/'));
-  if (!imgItem) return;
-  e.preventDefault();
-  selFile = imgItem.getAsFile();
-  showPreview(selFile);
-  if (!document.getElementById('tab-signals').classList.contains('active')) switchTab('signals');
-  showAlert('📋 Screenshot pasted! Click "Submit Signal" to parse.', 'ok');
-});
-
-// ══════════════════════════════════════════════════════
-// SIGNAL: IMAGE
+// SIGNAL HANDLING (IMAGE & TEXT)
 // ══════════════════════════════════════════════════════
 let selFile = null;
-function onFileSelect(inp) { selFile = inp.files[0]; showPreview(selFile); }
+
+function onFileSelect(inp) { 
+  selFile = inp.files[0]; 
+  if (selFile) showPreview(selFile); 
+}
+
 function onDrop(e) {
   e.preventDefault();
   document.getElementById('drop-zone').classList.remove('dragover');
   selFile = e.dataTransfer.files[0];
   if (selFile) showPreview(selFile);
 }
+
 function showPreview(file) {
   const reader = new FileReader();
   reader.onload = ev => {
@@ -1134,45 +1126,57 @@ function showPreview(file) {
   reader.readAsDataURL(file);
 }
 
+// Global Paste Handler
+document.addEventListener('paste', (e) => {
+  const items = Array.from(e.clipboardData?.items || []);
+  const imgItem = items.find(i => i.type.startsWith('image/'));
+  if (imgItem) {
+    selFile = imgItem.getAsFile();
+    showPreview(selFile);
+    if (!document.getElementById('tab-signals').classList.contains('active')) switchTab('signals');
+    showAlert('📋 Screenshot pasted! Click "Submit Signal" to parse.', 'ok');
+  }
+});
+
 async function submitImage() {
-  if (!selFile) { showAlert('Please select an image first', 'err'); return; }
+  if (!selFile) { showAlert('Please select or paste an image first', 'err'); return; }
   const lot = document.getElementById('img-lot').value;
-  const trail = document.getElementById('img-trail').value;
-  let url = `/api/signal/image?lot_size=${lot}`;
-  if (trail) url += `&trailing_sl_points=${trail}`;
+  const trail = document.getElementById('img-trail').value || 0;
+  
+  const fd = new FormData();
+  fd.append('file', selFile);
+  fd.append('lot_size', lot);
+  fd.append('trailing_sl_points', trail);
+
   document.getElementById('parsed-out').textContent = '⏳ Parsing with OCR...';
-  const fd = new FormData(); fd.append('file', selFile);
   try {
-    const res = await fetch(url, { method:'POST', body:fd });
+    const res = await fetch('/api/signal/image', { method: 'POST', body: fd });
     const d = await res.json();
-    if (res.ok) {
-      document.getElementById('parsed-out').textContent = JSON.stringify(d.parsed_signal, null, 2);
-      showAlert('✅ ' + d.message);
-      setTimeout(() => location.reload(), 1800);
+    if (d.success) {
+      showConfirmModal(d.signal, 'IMG');
     } else {
-      showAlert('❌ ' + d.detail, 'err');
-      document.getElementById('parsed-out').textContent = 'Error: ' + d.detail;
+      showAlert('❌ ' + (d.error || 'Parse Error'), 'err');
+      document.getElementById('parsed-out').textContent = 'Error: ' + d.error;
     }
-  } catch { showAlert('Network error', 'err'); }
+  } catch(e) { showAlert('Network error', 'err'); }
 }
 
-// ══════════════════════════════════════════════════════
-// SIGNAL: TEXT
-// ══════════════════════════════════════════════════════
-function previewText() { }
 async function submitText() {
   const text = document.getElementById('txt-signal').value.trim();
-  if (!text) { showAlert('Please paste a signal', 'err'); return; }
-  const lot = document.getElementById('txt-lot').value;
-  const trail = document.getElementById('txt-trail').value;
-  const body = { text, lot_size: +lot };
-  if (trail) body.trailing_sl_points = +trail;
+  if (!text) { showAlert('Please paste a signal text', 'err'); return; }
+  
   try {
-    const res = await fetch('/api/signal/text', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const res = await fetch('/api/signal/text', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text })
+    });
     const d = await res.json();
-    if (res.ok) { showAlert(`✅ Trade #${d.trade_id} created`); setTimeout(() => location.reload(), 1800); }
-    else showAlert('❌ ' + d.detail, 'err');
-  } catch { showAlert('Network error', 'err'); }
+    if (d.success) {
+      showConfirmModal(d.signal, 'TXT');
+    } else {
+      showAlert('❌ ' + (d.error || 'Parse Error'), 'err');
+    }
+  } catch(e) { showAlert('Network error: ' + e.message, 'err'); }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1259,25 +1263,8 @@ function setCard(id, val, color) {
   el.textContent = val;
   el.className = 'val ' + color;
 }
-function updateTotalCard(unrealized) {
-  const total = _realizedPnl + unrealized;
-  const el = document.getElementById('card-total');
-  if (!el) return;
-  el.textContent = fmt(total);
-  el.className = 'val ' + (total >= 0 ? 'green' : 'red');
-}
-async function refreshSummary() {
-  try {
-    const s = await fetch('/api/portfolio/summary').then(r => r.json());
-    _realizedPnl = s.today_realized_pnl;
-    setCard('card-realized', fmt(s.today_realized_pnl), s.today_realized_pnl >= 0 ? 'green' : 'red');
-    setCard('card-trades', s.today_trades_count, 'blue');
-    setCard('card-winrate', s.today_trades_count > 0 ? s.today_win_rate.toFixed(1) + '%' : '—', 'yellow');
-  } catch(e) {}
-}
-refreshOpenPos(); refreshSummary();
-setInterval(refreshOpenPos, 3000);
-setInterval(refreshSummary, 10000);
+// updateTotalCard is now consolidated at the bottom of the script
+// These are now handled by the consolidated refreshSummary() below
 
 // ══════════════════════════════════════════════════════
 // MODIFY MODAL
@@ -1321,19 +1308,7 @@ async function submitModify() {
     } else { showAlert('❌ ' + d.detail, 'err'); }
   } catch { showAlert('Network error', 'err'); }
 }
-async function deleteTrade(id) {
-  if (!confirm('Close/Cancel trade #' + id + '?\n• PENDING → Cancel\n• OPEN → Force close at current LTP')) return;
-  try {
-    const res = await fetch('/api/trades/' + id, { method: 'DELETE' });
-    const d = await res.json();
-    if (res.ok) {
-      const row = document.getElementById('row-' + id);
-      if (row) row.remove();
-      showAlert('✅ Trade #' + id + ' removed');
-      refreshOpenPos();
-    } else { showAlert('❌ ' + d.detail, 'err'); }
-  } catch { showAlert('Network error', 'err'); }
-}
+// deleteTrade(id) is now consolidated at the bottom of the script
 document.getElementById('modify-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('modify-modal'))
     document.getElementById('modify-modal').classList.remove('show');
