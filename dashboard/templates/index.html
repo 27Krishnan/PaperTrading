@@ -307,8 +307,8 @@
         <div class="val yellow" id="card-unrealized">—</div>
       </div>
       <div class="card" style="border-color:#00d4aa33">
-        <div class="lbl" style="color:#00d4aa88">Session Total</div>
-        <div class="val green" id="card-total">₹{{ "{:,.0f}".format(total_pnl) }}</div>
+        <div class="lbl" style="color:#00d4aa88">Total Account P&L</div>
+        <div class="val green" id="card-total">₹{{ "{:,.0f}".format(total_pnl + (realized_pnl or 0)) }}</div>
       </div>
       <div class="card">
         <div class="lbl">Session Trades</div>
@@ -2403,9 +2403,50 @@ function clearBasket() {
 function showBasketAlert(m) { showAlert(m); }
 
 // ══════════════════════════════════════════════════════
-// AUTO-INIT: Load owners & strategies on page load
+// SUMMARY CARDS & LIVE REFRESH
 // ══════════════════════════════════════════════════════
-setTimeout(() => { loadOwners(); loadStrategies(); }, 500);
+let _realizedPnl = 0;
+let _totalRealizedPnl = 0;
+
+function updateTotalCard(unrealized) {
+  const total = _totalRealizedPnl + unrealized;
+  setCard('card-unrealized', fmt(unrealized), unrealized >= 0 ? 'yellow' : 'red');
+  setCard('card-total', fmt(total), total >= 0 ? 'green' : 'red');
+}
+
+async function refreshSummary() {
+  try {
+    const res = await fetch('/api/portfolio/summary');
+    if (!res.ok) return;
+    const s = await res.json();
+    
+    _realizedPnl = s.today_realized_pnl;
+    _totalRealizedPnl = s.total_realized_pnl;
+    
+    setCard('card-realized', fmt(s.today_realized_pnl), s.today_realized_pnl >= 0 ? 'green' : 'red');
+    setCard('card-trades', s.today_trades, 'blue');
+    setCard('card-winrate', s.today_win_rate + '%', 'yellow');
+    
+    updateTotalCard(s.unrealized_pnl);
+  } catch(e) { console.error('Summary refresh error:', e); }
+}
+
+function setCard(id, val, colorClass) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val;
+  el.className = 'val ' + colorClass;
+}
+
+// ══════════════════════════════════════════════════════
+// AUTO-INIT: Load everything on page load
+// ══════════════════════════════════════════════════════
+setTimeout(() => { 
+  loadOwners(); 
+  loadStrategies(); 
+  refreshSummary();
+  setInterval(refreshSummary, 5000);
+}, 500);
 </script>
 </body>
 </html>
