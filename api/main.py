@@ -176,9 +176,16 @@ async def upload_signal_image(
 
 
 @app.post("/api/signal/text")
-        raise HTTPException(status_code=500, detail="Failed to create trade")
-
-    return {"success": True, "parsed_signal": signal, "trade_id": trade.id}
+async def parse_text_signal(payload: TradeSignalText):
+    try:
+        signal = signal_parser.parse_text(payload.text)
+        return {
+            "success": True,
+            "signal": signal
+        }
+    except Exception as e:
+        logger.error(f"Text parse error: {e}")
+        return {"success": False, "error": str(e)}
 
 
 # ─── Manual / Basket trades ───────────────────────────────────────────────────
@@ -735,6 +742,12 @@ async def portfolio_summary(db: Session = Depends(get_db)):
         "losing_trades": len(closed) - winners,
         "win_rate": round(winners / len(closed) * 100, 1) if closed else 0,
     }
+
+
+@app.post("/api/close-intraday")
+async def close_intraday():
+    engine.close_all_intraday()
+    return {"success": True, "message": "All intraday positions closed"}
 
 
 @app.delete("/api/trade/{trade_id}")
