@@ -2244,45 +2244,6 @@ async function deleteTrade(id) {
   } catch(e) { alert('Network error: ' + e.message); }
 }
 
-async function submitImage() {
-  const fileIn = document.getElementById('file-in');
-  if (!fileIn.files.length && !_pastedBlob) { alert('Please upload or paste an image'); return; }
-  
-  const formData = new FormData();
-  if (_pastedBlob) formData.append('file', _pastedBlob, 'pasted.jpg');
-  else formData.append('file', fileIn.files[0]);
-  
-  formData.append('lot_size', document.getElementById('img-lot').value);
-  formData.append('trailing_sl_points', document.getElementById('img-trail').value || 0);
-
-  try {
-    const res = await fetch('/api/signal/image', { method: 'POST', body: formData });
-    const d = await res.json();
-    if (d.success) {
-      showConfirmModal(d.signal, 'IMG');
-    } else {
-      alert('Parse Error: ' + d.error);
-    }
-  } catch(e) { alert('Network error: ' + e.message); }
-}
-
-async function submitText() {
-  const text = document.getElementById('txt-signal').value.trim();
-  if (!text) { alert('Paste signal text first'); return; }
-  
-  try {
-    const res = await fetch('/api/signal/text', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ text })
-    });
-    const d = await res.json();
-    if (d.success) {
-      showConfirmModal(d.signal, 'TXT');
-    } else {
-      alert('Parse Error: ' + d.error);
-    }
-  } catch(e) { alert('Network error: ' + e.message); }
-}
 
 function showConfirmModal(sig, source) {
   document.getElementById('conf-symbol').value = sig.symbol || '';
