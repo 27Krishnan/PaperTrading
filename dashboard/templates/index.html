@@ -2336,6 +2336,8 @@ async function executeConfirmed() {
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
 }
+
+async function executeBasket() {
   const ownerId = document.getElementById('oc-basket-owner').value;
   const strategy = document.getElementById('oc-basket-strategy').value;
   const legs = _basket.map(leg => ({
