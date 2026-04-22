@@ -150,6 +150,9 @@ async def upload_signal_image(
 
     try:
         signal = signal_parser.parse_image(str(save_path))
+        if not signal:
+            return {"success": False, "error": "Could not extract valid trade details (Entry, SL, Target) from image."}
+            
         if not execute:
             return {
                 "success": True,
@@ -180,6 +183,8 @@ async def upload_signal_image(
 async def parse_text_signal(payload: TradeSignalText):
     try:
         signal = signal_parser.parse_text(payload.text)
+        if not signal:
+            return {"success": False, "error": "Could not extract valid trade details from text."}
         return {
             "success": True,
             "signal": signal
