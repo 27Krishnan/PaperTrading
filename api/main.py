@@ -17,7 +17,7 @@ from database.models import Trade, TradeStatus, DailyReport, Owner, Strategy
 from parsers.signal_parser import signal_parser
 from core.engine import engine
 from core.utils import get_now_ist, IST
-from core.config import settings
+from config.settings import settings
 from loguru import logger
 
 app = FastAPI(title="Paper Trading System", version="1.0.0")
