@@ -1476,8 +1476,6 @@ function setAction(a) {
     document.getElementById('modal-submit-btn').style.cssText='background:#ff4d6d;color:#fff;';
   }
 }
-function closeModal() { document.getElementById('trade-modal').classList.remove('show'); }
-
 async function submitModalTrade() {
   const modal = document.getElementById('trade-modal');
   const symbol = modal.dataset.symbol, itype = modal.dataset.itype;
@@ -1509,7 +1507,7 @@ async function submitModalTrade() {
     });
     const d = await res.json();
     if (res.ok) {
-      closeModal();
+      closeModal('trade-modal');
       showAlert(`✅ Trade #${d.trade_id} created: ${_modalAction} ${symbol} @ ${entry}`);
       switchTab('signals');
       setTimeout(() => location.reload(), 1500);
@@ -1517,8 +1515,9 @@ async function submitModalTrade() {
   } catch(e) { alert('Network error: ' + e.message); }
 }
 document.getElementById('trade-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('trade-modal')) closeModal();
+  if (e.target === document.getElementById('trade-modal')) closeModal('trade-modal');
 });
+
 
 // ══════════════════════════════════════════════════════
 // POSITIONS TAB
