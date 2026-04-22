@@ -138,6 +138,7 @@ async def upload_signal_image(
     lot_size: int = 1,
     trailing_sl_points: float = None,
     trailing_method: str = "sl_distance",
+    execute: bool = False,
 ):
     timestamp = get_now_ist().strftime("%Y%m%d_%H%M%S")
     ext = Path(file.filename).suffix or ".jpg"
@@ -146,42 +147,35 @@ async def upload_signal_image(
     with open(save_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    signal = signal_parser.parse_image(str(save_path))
-    if not signal:
-        raise HTTPException(
-            status_code=422, detail="Could not parse trade signal from image"
+    try:
+        signal = signal_parser.parse_image(str(save_path))
+        if not execute:
+            return {
+                "success": True,
+                "signal": signal,
+                "image_path": str(save_path)
+            }
+        
+        trade = engine.add_trade(
+            signal,
+            lot_size=lot_size,
+            trailing_sl_points=trailing_sl_points,
+            trailing_method=trailing_method,
         )
-
-    trade = engine.add_trade(
-        signal,
-        lot_size=lot_size,
-        trailing_sl_points=trailing_sl_points,
-        trailing_method=trailing_method,
-    )
-    if not trade:
-        raise HTTPException(status_code=500, detail="Failed to create trade")
-
-    return {
-        "success": True,
-        "parsed_signal": signal,
-        "trade_id": trade.id,
-        "message": f"Trade #{trade.id} created: {signal['action']} {signal['symbol']} @ {signal['entry_price']}",
-    }
+        if not trade:
+            raise HTTPException(status_code=500, detail="Failed to create trade")
+        return {
+            "success": True,
+            "parsed_signal": signal,
+            "trade_id": trade.id,
+            "message": f"Trade #{trade.id} created: {signal['action']} {signal['symbol']} @ {signal['entry_price']}",
+        }
+    except Exception as e:
+        logger.error(f"Image parse error: {e}")
+        return {"success": False, "error": str(e)}
 
 
 @app.post("/api/signal/text")
-async def signal_from_text(payload: TradeSignalText):
-    signal = signal_parser.parse_text(payload.text)
-    if not signal:
-        raise HTTPException(status_code=422, detail="Could not parse signal from text")
-
-    trade = engine.add_trade(
-        signal,
-        lot_size=payload.lot_size,
-        trailing_sl_points=payload.trailing_sl_points,
-        trailing_method=payload.trailing_method,
-    )
-    if not trade:
         raise HTTPException(status_code=500, detail="Failed to create trade")
 
     return {"success": True, "parsed_signal": signal, "trade_id": trade.id}
@@ -743,10 +737,19 @@ async def portfolio_summary(db: Session = Depends(get_db)):
     }
 
 
-@app.post("/api/close-intraday")
-async def close_intraday():
-    engine.close_all_intraday()
-    return {"success": True, "message": "All intraday positions closed"}
+@app.delete("/api/trade/{trade_id}")
+async def delete_trade(trade_id: int, db: Session = Depends(get_db)):
+    trade = db.query(Trade).filter(Trade.id == trade_id).first()
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade not found")
+    
+    # Remove from engine if active
+    if trade.id in engine._active_trades:
+        del engine._active_trades[trade.id]
+        
+    db.delete(trade)
+    db.commit()
+    return {"success": True, "message": f"Trade #{trade_id} deleted"}
 
 
 @app.get("/api/status")

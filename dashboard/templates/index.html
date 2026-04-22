@@ -459,7 +459,10 @@
             <td>{% if t.owner %}<span style="background:{{ t.owner.color }}22;color:{{ t.owner.color }};padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700">{{ t.owner.name }}</span>{% else %}<span style="color:#333">—</span>{% endif %}</td>
             <td style="font-size:11px;color:#888">{{ t.strategy or "—" }}</td>
             <td style="color:#6c9eff;font-size:11px;">{{ t.entry_triggered_at.strftime('%d %b %H:%M') if t.entry_triggered_at else "—" }}</td>
-            <td style="color:#ff4d6d;font-size:11px;">{{ t.closed_at.strftime('%d %b %H:%M') if t.closed_at else "—" }}</td>
+            <td style="color:#ff4d6d;font-size:11px;">
+              {{ t.closed_at.strftime('%d %b %H:%M') if t.closed_at else "—" }}
+              <button class="act-btn del" style="margin-left:8px;padding:1px 6px" onclick="deleteTrade({{ t.id }})">✕</button>
+            </td>
           </tr>
           {% endfor %}
           </tbody>
@@ -780,7 +783,53 @@
 
 </div><!-- /layout -->
 
-<!-- ══ MODIFY MODAL ═══════════════════════════════ -->
+<!-- ══ CONFIRMATION MODAL ══════════════════ -->
+  <div id="confirm-modal" class="modal">
+    <div class="modal-content" style="max-width:500px">
+      <div class="modal-hdr">
+        <span id="confirm-title">⚡ Confirm Trade Execution</span>
+        <span class="close" onclick="closeModal('confirm-modal')">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div id="confirm-msg" style="margin-bottom:15px;font-size:13px;color:#888">Verify the parsed signal details before executing.</div>
+        <div class="form-grid">
+          <label>Symbol</label><input type="text" id="conf-symbol" style="font-weight:bold;color:#6c9eff">
+          <label>Exchange</label>
+          <select id="conf-exch">
+            <option value="NSE">NSE</option>
+            <option value="NFO">NFO</option>
+            <option value="MCX">MCX</option>
+            <option value="BSE">BSE</option>
+          </select>
+          <label>Action</label>
+          <select id="conf-action">
+            <option value="BUY">BUY</option>
+            <option value="SELL">SELL</option>
+          </select>
+          <label>Type</label>
+          <select id="conf-type">
+            <option value="INTRADAY">INTRADAY</option>
+            <option value="POSITIONAL">POSITIONAL</option>
+          </select>
+          <label>Entry</label><input type="number" step="0.05" id="conf-entry">
+          <label>Stop Loss</label><input type="number" step="0.05" id="conf-sl">
+          <label>Target 1</label><input type="number" step="0.05" id="conf-t1">
+          <label>Target 2</label><input type="number" step="0.05" id="conf-t2">
+          <label>Lots</label><input type="number" id="conf-lot" value="1">
+          <label>Strategy</label>
+          <select id="conf-strat">
+            <option value="">— None —</option>
+            {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div style="margin-top:20px;display:flex;gap:10px;">
+          <button class="btn" style="flex:1" onclick="executeConfirmed()">⚡ Execute Trade</button>
+          <button class="btn sec-btn" onclick="closeModal('confirm-modal')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <div class="modal-bg" id="modify-modal">
   <div class="mmod">
     <h4>✏️ Modify Trade <span id="modify-id" style="color:#555;font-size:12px"></span></h4>
@@ -2206,9 +2255,112 @@ function renderAnalysis() {
   document.getElementById('ana-capital').textContent = '₹' + totalMargin.toLocaleString('en-IN');
 }
 
-async function executeBasket() {
-  if (!_basket.length) { alert('Basket is empty'); return; }
-  if (!confirm(`Execute ${_basket.length} trade(s)?`)) return;
+async function deleteTrade(id) {
+  if (!confirm(`Delete trade #${id}? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`/api/trade/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      showAlert(`✅ Trade #${id} deleted`);
+      location.reload();
+    } else {
+      const d = await res.json();
+      alert('Error: ' + d.detail);
+    }
+  } catch(e) { alert('Network error: ' + e.message); }
+}
+
+async function submitImage() {
+  const fileIn = document.getElementById('file-in');
+  if (!fileIn.files.length && !_pastedBlob) { alert('Please upload or paste an image'); return; }
+  
+  const formData = new FormData();
+  if (_pastedBlob) formData.append('file', _pastedBlob, 'pasted.jpg');
+  else formData.append('file', fileIn.files[0]);
+  
+  formData.append('lot_size', document.getElementById('img-lot').value);
+  formData.append('trailing_sl_points', document.getElementById('img-trail').value || 0);
+
+  try {
+    const res = await fetch('/api/signal/image', { method: 'POST', body: formData });
+    const d = await res.json();
+    if (d.success) {
+      showConfirmModal(d.signal, 'IMG');
+    } else {
+      alert('Parse Error: ' + d.error);
+    }
+  } catch(e) { alert('Network error: ' + e.message); }
+}
+
+async function submitText() {
+  const text = document.getElementById('txt-signal').value.trim();
+  if (!text) { alert('Paste signal text first'); return; }
+  
+  try {
+    const res = await fetch('/api/signal/text', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text })
+    });
+    const d = await res.json();
+    if (d.success) {
+      showConfirmModal(d.signal, 'TXT');
+    } else {
+      alert('Parse Error: ' + d.error);
+    }
+  } catch(e) { alert('Network error: ' + e.message); }
+}
+
+function showConfirmModal(sig, source) {
+  document.getElementById('conf-symbol').value = sig.symbol || '';
+  document.getElementById('conf-exch').value = sig.exchange || 'NSE';
+  document.getElementById('conf-action').value = sig.action || 'BUY';
+  document.getElementById('conf-type').value = sig.trade_type || 'INTRADAY';
+  document.getElementById('conf-entry').value = sig.entry_price || '';
+  document.getElementById('conf-sl').value = sig.stop_loss || '';
+  document.getElementById('conf-t1').value = (sig.targets && sig.targets[0]) || '';
+  document.getElementById('conf-t2').value = (sig.targets && sig.targets[1]) || '';
+  
+  const lotIn = source === 'IMG' ? 'img-lot' : 'txt-lot';
+  const stratIn = source === 'IMG' ? 'img-strategy' : ''; 
+  document.getElementById('conf-lot').value = document.getElementById(lotIn).value;
+  if (stratIn) document.getElementById('conf-strat').value = document.getElementById(stratIn).value;
+  
+  document.getElementById('confirm-modal').classList.add('show');
+}
+
+async function executeConfirmed() {
+  const body = {
+    symbol: document.getElementById('conf-symbol').value,
+    exchange: document.getElementById('conf-exch').value,
+    action: document.getElementById('conf-action').value,
+    trade_type: document.getElementById('conf-type').value,
+    entry_price: +document.getElementById('conf-entry').value,
+    stop_loss: +document.getElementById('conf-sl').value,
+    targets: [
+      +document.getElementById('conf-t1').value,
+      +document.getElementById('conf-t2').value
+    ].filter(v => v > 0),
+    quantity: +document.getElementById('conf-lot').value * 1, // Will be adjusted by engine if NIFTY etc
+    lot_size: 1, // Engine handles lot calculation for known symbols
+    entry_type: 'MARKET',
+    strategy: document.getElementById('conf-strat').value || null
+  };
+  
+  try {
+    const res = await fetch('/api/trade/manual', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const d = await res.json();
+    if (res.ok) {
+      closeModal('confirm-modal');
+      showAlert(`✅ Trade created: ${body.action} ${body.symbol} @ ${body.entry_price}`);
+      setTimeout(() => location.reload(), 1000);
+    } else { alert('Error: ' + d.detail); }
+  } catch(e) { alert('Network error: ' + e.message); }
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
   const ownerId = document.getElementById('oc-basket-owner').value;
   const strategy = document.getElementById('oc-basket-strategy').value;
   const legs = _basket.map(leg => ({
