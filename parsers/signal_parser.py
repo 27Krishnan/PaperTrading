@@ -7,8 +7,10 @@ Format 2 (structured): BUY / LAURUSLABS APR 1100PE / ENTRY - 44 / SL - 36 / RISK
 """
 
 import re
+import tempfile
 from pathlib import Path
 from loguru import logger
+from PIL import Image, ImageOps, ImageFilter
 
 # EasyOCR is loaded once (lazy) to avoid startup delay
 _ocr_reader = None
@@ -38,16 +40,62 @@ def _get_reader():
     return _ocr_reader
 
 
+def _prepare_ocr_variants(image_path: str) -> list[str]:
+    """Create OCR-friendly image variants for noisy screenshots."""
+    temp_paths: list[str] = []
+    try:
+        img = Image.open(image_path)
+        img = ImageOps.exif_transpose(img)
+
+        # Upscale + grayscale + autocontrast helps on compressed Telegram screenshots.
+        processed = img.convert("L")
+        processed = processed.resize(
+            (processed.width * 2, processed.height * 2), Image.Resampling.LANCZOS
+        )
+        processed = ImageOps.autocontrast(processed)
+        processed = processed.filter(ImageFilter.SHARPEN)
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            processed.save(tmp.name, format="PNG")
+            temp_paths.append(tmp.name)
+    except Exception as e:
+        logger.debug(f"Could not create OCR variants: {e}")
+    return temp_paths
+
+
 def _extract_text_from_image(image_path: str) -> str:
-    """Use EasyOCR to extract all text from a Telegram screenshot"""
+    """Use EasyOCR to extract text from a Telegram screenshot with fallbacks."""
     import os
 
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image file not found: {image_path}")
 
     reader = _get_reader()
-    results = reader.readtext(image_path, detail=0, paragraph=True)
-    text = "\n".join(results)
+    variants = [image_path, *_prepare_ocr_variants(image_path)]
+    lines: list[str] = []
+    seen: set[str] = set()
+
+    try:
+        for variant in variants:
+            for paragraph in (True, False):
+                try:
+                    results = reader.readtext(variant, detail=0, paragraph=paragraph)
+                    for item in results:
+                        cleaned = str(item).strip()
+                        key = cleaned.upper()
+                        if cleaned and key not in seen:
+                            seen.add(key)
+                            lines.append(cleaned)
+                except Exception as e:
+                    logger.debug(f"OCR read failed for {variant} paragraph={paragraph}: {e}")
+    finally:
+        for variant in variants[1:]:
+            try:
+                os.remove(variant)
+            except OSError:
+                pass
+
+    text = "\n".join(lines)
     if not text.strip():
         raise ValueError("No text detected in image")
     logger.debug(f"OCR extracted:\n{text}")
@@ -57,18 +105,24 @@ def _extract_text_from_image(image_path: str) -> str:
 def _normalize(text: str) -> str:
     """Normalize common abbreviations and symbols"""
     text = text.upper().strip()
+    text = re.sub(r"(?<=\d),(?=\d)", "", text)
     replacements = {
         "ABV": "ABOVE",
         "BLW": "BELOW",
         "BTW": "BELOW",
         "TAR": "TARGET",
         "TGT": "TARGET",
+        "TRG": "TARGET",
+        "TG": "TARGET",
         "T1": "TARGET1",
         "T2": "TARGET2",
         "T3": "TARGET3",
         "SLT": "SL",
+        "S/L": "SL",
+        "S L": "SL",
         "STOPLOSS": "SL",
         "STOP LOSS": "SL",
+        "STOP-LOSS": "SL",
         "ENT": "ENTRY",
         "ENTER": "ENTRY",
         "CE ": "CE ",
@@ -250,6 +304,105 @@ def _parse_format2(text: str) -> dict | None:
     }
 
 
+def _extract_targets(norm: str) -> list[float]:
+    targets = []
+
+    labeled_bundle = re.search(
+        r"TARGETS?[\d\s\-:]*((?:\d+(?:\.\d+)?\s+){0,4}\d+(?:\.\d+)?)", norm
+    )
+    if labeled_bundle:
+        targets.extend(
+            float(x) for x in re.findall(r"\d+(?:\.\d+)?", labeled_bundle.group(1))
+        )
+
+    if not targets:
+        for match in re.finditer(r"TARGET[123]?[\s\-:]+(\d+(?:\.\d+)?)", norm):
+            targets.append(float(match.group(1)))
+
+    deduped = []
+    for value in targets:
+        if value not in deduped:
+            deduped.append(value)
+    return deduped
+
+
+def _parse_generic_signal(text: str) -> dict | None:
+    """Loose fallback for OCR text that doesn't match the strict formats."""
+    norm = _normalize(text)
+    lines = [line.strip() for line in norm.splitlines() if line.strip()]
+
+    action_m = re.search(r"\b(BUY|SELL|SHORT|LONG)\b", norm)
+    if not action_m:
+        return None
+    action = action_m.group(1)
+    if action == "SHORT":
+        action = "SELL"
+    elif action == "LONG":
+        action = "BUY"
+
+    symbol = None
+    symbol_m = re.search(
+        r"#?((?:BANKNIFTY|MIDCPNIFTY|FINNIFTY|SENSEX|BANKEX|NIFTY|[A-Z]+)\s*(?:[A-Z]{3}\s*)?\d+(?:CE|PE|FUT))",
+        norm,
+    )
+    if symbol_m:
+        symbol = symbol_m.group(1).replace(" ", "")
+    elif lines:
+        for line in lines:
+            cleaned = re.sub(
+                r"\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b", "", line
+            )
+            compact = re.sub(r"\s+", "", cleaned)
+            if re.search(r"\d+(CE|PE|FUT)", compact):
+                symbol = compact
+                break
+
+    if not symbol:
+        return None
+
+    entry_type = "LIMIT"
+    entry_patterns = [
+        (r"(?:BUY|SELL)\s+ABOVE[\s\-:]+(\d+(?:\.\d+)?)", "ABOVE"),
+        (r"(?:BUY|SELL)\s+BELOW[\s\-:]+(\d+(?:\.\d+)?)", "BELOW"),
+        (r"ENTRY[\s\-:]+(\d+(?:\.\d+)?)", "LIMIT"),
+        (r"\bAT[\s\-:]+(\d+(?:\.\d+)?)", "LIMIT"),
+        (r"\bABOVE[\s\-:]+(\d+(?:\.\d+)?)", "ABOVE"),
+        (r"\bBELOW[\s\-:]+(\d+(?:\.\d+)?)", "BELOW"),
+    ]
+
+    entry = None
+    for pattern, etype in entry_patterns:
+        match = re.search(pattern, norm)
+        if match:
+            entry = float(match.group(1))
+            entry_type = etype
+            break
+
+    sl_m = re.search(r"(?:\bSL\b|STOPLOSS|STOP)[\s\-:]+(\d+(?:\.\d+)?)", norm)
+    sl = float(sl_m.group(1)) if sl_m else None
+    targets = _extract_targets(norm)
+
+    if entry is None or sl is None:
+        return None
+
+    return {
+        "action": action,
+        "symbol": symbol,
+        "instrument_type": _detect_instrument(symbol),
+        "expiry": None,
+        "exchange": _detect_exchange(symbol),
+        "entry_price": entry,
+        "entry_type": entry_type,
+        "stop_loss": sl,
+        "targets": targets,
+        "risk_amount": None,
+        "quantity": None,
+        "trade_type": "INTRADAY",
+        "source_channel": None,
+        "raw_text": text.strip(),
+    }
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
 
 
@@ -280,6 +433,8 @@ class SignalParser:
 
     def _parse_text_smart(self, text: str, source_image: str = None) -> dict | None:
         """Try both formats, return first successful parse"""
+        attempts = []
+
         # Try compact format first (has # or single line with buy/sell + sl)
         if re.search(r"(BUY|SELL|SHORT|LONG).{1,60}(SL|STOP)", text, re.IGNORECASE):
             result = _parse_format1(text)
@@ -290,6 +445,7 @@ class SignalParser:
                     f"Format1 parsed: {result['action']} {result['symbol']} @ {result['entry_price']}"
                 )
                 return result
+            attempts.append("format1")
 
         # Try structured format
         result = _parse_format2(text)
@@ -300,8 +456,21 @@ class SignalParser:
                 f"Format2 parsed: {result['action']} {result['symbol']} @ {result['entry_price']}"
             )
             return result
+        attempts.append("format2")
 
-        logger.warning(f"Could not parse signal from text:\n{text[:200]}")
+        result = _parse_generic_signal(text)
+        if result:
+            if source_image:
+                result["signal_image_path"] = source_image
+            logger.info(
+                f"Generic parser parsed: {result['action']} {result['symbol']} @ {result['entry_price']}"
+            )
+            return result
+        attempts.append("generic")
+
+        logger.warning(
+            f"Could not parse signal from text after attempts {attempts}:\n{text[:300]}"
+        )
         return None
 
     def calculate_quantity(self, signal: dict, lot_size: int = 1) -> int:

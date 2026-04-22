@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
 import pytz
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
@@ -136,10 +136,12 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 @app.post("/api/signal/image")
 async def upload_signal_image(
     file: UploadFile = File(...),
-    lot_size: int = 1,
-    trailing_sl_points: float = None,
-    trailing_method: str = "sl_distance",
-    execute: bool = False,
+    lot_size: int = Form(1),
+    trailing_sl_points: float = Form(None),
+    trailing_method: str = Form("sl_distance"),
+    owner_id: int = Form(None),
+    strategy: str = Form(None),
+    execute: bool = Form(False),
 ):
     timestamp = get_now_ist().strftime("%Y%m%d_%H%M%S")
     ext = Path(file.filename).suffix or ".jpg"
@@ -165,6 +167,8 @@ async def upload_signal_image(
             lot_size=lot_size,
             trailing_sl_points=trailing_sl_points,
             trailing_method=trailing_method,
+            owner_id=owner_id,
+            strategy=strategy,
         )
         if not trade:
             raise HTTPException(status_code=500, detail="Failed to create trade")
@@ -215,17 +219,11 @@ async def create_manual_trade(payload: ManualTrade, db: Session = Depends(get_db
         signal,
         lot_size=payload.lot_size,
         trailing_sl_points=payload.trailing_sl_points,
+        owner_id=payload.owner_id,
+        strategy=payload.strategy,
     )
     if not trade:
         raise HTTPException(status_code=500, detail="Failed to create trade")
-
-    # Assign owner / strategy if provided
-    if payload.owner_id is not None:
-        db_trade = db.query(Trade).filter(Trade.id == trade.id).first()
-        if db_trade:
-            db_trade.owner_id = payload.owner_id
-            db_trade.strategy = payload.strategy
-            db.commit()
 
     return {"success": True, "trade_id": trade.id}
 
@@ -255,13 +253,9 @@ async def execute_basket(payload: BasketPayload, db: Session = Depends(get_db)):
                 signal,
                 lot_size=leg.lot_size,
                 trailing_sl_points=leg.trailing_sl_points,
+                owner_id=leg.owner_id,
+                strategy=leg.strategy,
             )
-            if trade and (leg.owner_id is not None or leg.strategy):
-                db_trade = db.query(Trade).filter(Trade.id == trade.id).first()
-                if db_trade:
-                    db_trade.owner_id = leg.owner_id
-                    db_trade.strategy = leg.strategy
-                    db.commit()
 
             results.append(
                 {

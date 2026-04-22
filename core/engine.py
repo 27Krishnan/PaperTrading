@@ -88,7 +88,9 @@ class PaperTradingEngine:
 
     def add_trade(self, signal: dict, lot_size: int = 1,
                   trailing_sl_points: float = None,
-                  trailing_method: str = "sl_distance") -> Trade | None:
+                  trailing_method: str = "sl_distance",
+                  owner_id: int = None,
+                  strategy: str = None) -> Trade | None:
         """
         Create a new paper trade from parsed signal.
         trailing_sl_points: if None, uses entry-SL distance as trailing
@@ -138,6 +140,8 @@ class PaperTradingEngine:
                 signal_source=signal.get("source_channel"),
                 raw_signal=signal.get("raw_text"),
                 target_idx=0,
+                owner_id=owner_id,
+                strategy=strategy,
             )
             self._add_audit_log(trade, f"Signal Received: {action} {trade.symbol} @ {entry or 'Market'}. Type: {trade.entry_type}. SL: {sl}. T1: {targets[0] if targets else 'None'}", type="RECEIVED")
             db.add(trade)

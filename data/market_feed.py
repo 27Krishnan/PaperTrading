@@ -128,7 +128,11 @@ class MarketFeed:
         logger.warning("WebSocket closed")
         if self._running:
             logger.info("Reconnecting in 5 seconds...")
-            time.sleep(5)
+            threading.Thread(target=self._delayed_reconnect, daemon=True).start()
+
+    def _delayed_reconnect(self):
+        time.sleep(5)
+        if self._running:
             self._run_ws()
 
     @staticmethod

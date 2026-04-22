@@ -12,6 +12,7 @@ class AngelOneAPI:
         self.feed_token = None
         self._connected = False
         self._monitoring = False
+        self._heartbeat_failures = 0
 
     def connect(self) -> bool:
         try:
@@ -24,6 +25,7 @@ class AngelOneAPI:
                 self.auth_token = data["data"]["jwtToken"]
                 self.feed_token = self.api.getfeedToken()
                 self._connected = True
+                self._heartbeat_failures = 0
                 logger.info(f"Angel One connected | Client: {settings.ANGEL_CLIENT_ID}")
                 self.start_heartbeat()
                 return True
@@ -53,11 +55,22 @@ class AngelOneAPI:
                 if self._connected and self.api:
                     # Quick LTP check to verify session is still alive
                     result = self.api.ltpData("NSE", "Nifty 50", "99926000")
-                    if not result or not result.get("status"):
-                        logger.warning("Angel heartbeat failed, attempting reconnect...")
+                    if result and result.get("status"):
+                        self._heartbeat_failures = 0
+                    else:
+                        self._heartbeat_failures += 1
+                        logger.warning(
+                            f"Angel heartbeat failed ({self._heartbeat_failures}/3)"
+                        )
+                    if self._heartbeat_failures >= 3:
+                        logger.warning("Angel heartbeat failed repeatedly, attempting reconnect...")
                         self._try_reconnect()
             except Exception as e:
-                logger.debug(f"Heartbeat error: {e}")
+                self._heartbeat_failures += 1
+                logger.debug(f"Heartbeat error ({self._heartbeat_failures}/3): {e}")
+                if self._heartbeat_failures >= 3:
+                    logger.warning("Angel heartbeat errors repeated, attempting reconnect...")
+                    self._try_reconnect()
             import time
 
             time.sleep(60)
@@ -81,7 +94,17 @@ class AngelOneAPI:
                     self.auth_token = data["data"]["jwtToken"]
                     self.feed_token = self.api.getfeedToken()
                     self._connected = True
+                    self._heartbeat_failures = 0
                     logger.info(f"Angel One reconnected on attempt {attempt + 1}")
+                    try:
+                        from data.market_feed import market_feed
+
+                        if market_feed._subscriptions:
+                            market_feed.stop()
+                            time.sleep(1)
+                            market_feed.start()
+                    except Exception as e:
+                        logger.debug(f"Market feed restart skipped: {e}")
                     return True
                 else:
                     logger.warning(
@@ -161,6 +184,7 @@ class AngelOneAPI:
         try:
             if self.api:
                 self.api.terminateSession(settings.ANGEL_CLIENT_ID)
+            self._monitoring = False
             self._connected = False
             logger.info("Angel One disconnected")
         except Exception as e:

@@ -784,51 +784,61 @@
 </div><!-- /layout -->
 
 <!-- ══ CONFIRMATION MODAL ══════════════════ -->
-  <div id="confirm-modal" class="modal">
-    <div class="modal-content" style="max-width:500px">
-      <div class="modal-hdr">
-        <span id="confirm-title">⚡ Confirm Trade Execution</span>
-        <span class="close" onclick="closeModal('confirm-modal')">&times;</span>
+<div class="modal-bg" id="confirm-modal">
+  <div class="modal" style="max-width:500px">
+    <h3>⚡ Confirm Trade Execution</h3>
+    <div id="confirm-msg" style="margin-bottom:15px;font-size:13px;color:#888">Verify the parsed signal details before executing.</div>
+    <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group"><label>Symbol</label><input type="text" id="conf-symbol" style="font-weight:bold;color:#6c9eff"></div>
+      <div class="form-group">
+        <label>Exchange</label>
+        <select id="conf-exch">
+          <option value="NSE">NSE</option>
+          <option value="NFO">NFO</option>
+          <option value="MCX">MCX</option>
+          <option value="BSE">BSE</option>
+        </select>
       </div>
-      <div class="modal-body">
-        <div id="confirm-msg" style="margin-bottom:15px;font-size:13px;color:#888">Verify the parsed signal details before executing.</div>
-        <div class="form-grid">
-          <label>Symbol</label><input type="text" id="conf-symbol" style="font-weight:bold;color:#6c9eff">
-          <label>Exchange</label>
-          <select id="conf-exch">
-            <option value="NSE">NSE</option>
-            <option value="NFO">NFO</option>
-            <option value="MCX">MCX</option>
-            <option value="BSE">BSE</option>
-          </select>
-          <label>Action</label>
-          <select id="conf-action">
-            <option value="BUY">BUY</option>
-            <option value="SELL">SELL</option>
-          </select>
-          <label>Type</label>
-          <select id="conf-type">
-            <option value="INTRADAY">INTRADAY</option>
-            <option value="POSITIONAL">POSITIONAL</option>
-          </select>
-          <label>Entry</label><input type="number" step="0.05" id="conf-entry">
-          <label>Stop Loss</label><input type="number" step="0.05" id="conf-sl">
-          <label>Target 1</label><input type="number" step="0.05" id="conf-t1">
-          <label>Target 2</label><input type="number" step="0.05" id="conf-t2">
-          <label>Lots</label><input type="number" id="conf-lot" value="1">
-          <label>Strategy</label>
-          <select id="conf-strat">
-            <option value="">— None —</option>
-            {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
-          </select>
-        </div>
-        <div style="margin-top:20px;display:flex;gap:10px;">
-          <button class="btn" style="flex:1" onclick="executeConfirmed()">⚡ Execute Trade</button>
-          <button class="btn sec-btn" onclick="closeModal('confirm-modal')">Cancel</button>
-        </div>
+      <div class="form-group">
+        <label>Action</label>
+        <select id="conf-action">
+          <option value="BUY">BUY</option>
+          <option value="SELL">SELL</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="conf-type">
+          <option value="INTRADAY">INTRADAY</option>
+          <option value="POSITIONAL">POSITIONAL</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Entry</label><input type="number" step="0.05" id="conf-entry"></div>
+      <div class="form-group"><label>Stop Loss</label><input type="number" step="0.05" id="conf-sl"></div>
+      <div class="form-group"><label>Target 1</label><input type="number" step="0.05" id="conf-t1"></div>
+      <div class="form-group"><label>Target 2</label><input type="number" step="0.05" id="conf-t2"></div>
+      <div class="form-group"><label>Lots</label><input type="number" id="conf-lot" value="1"></div>
+      <div class="form-group">
+        <label>Strategy</label>
+        <select id="conf-strat">
+          <option value="">— None —</option>
+          {% for s in strategies %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Owner</label>
+        <select id="conf-owner">
+          <option value="">— None —</option>
+          {% for o in owners %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}
+        </select>
       </div>
     </div>
+    <div class="modal-footer" style="margin-top:20px;display:flex;gap:10px;">
+      <button class="btn" style="flex:1" onclick="executeConfirmed()">⚡ Execute Trade</button>
+      <button class="btn cancel" onclick="closeModal('confirm-modal')">Cancel</button>
+    </div>
   </div>
+</div>
 
 <div class="modal-bg" id="modify-modal">
   <div class="mmod">
@@ -921,7 +931,7 @@
     </div>
 
     <div class="modal-footer">
-      <button class="btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn cancel" onclick="closeModal('trade-modal')">Cancel</button>
       <button class="btn" id="modal-submit-btn" onclick="submitModalTrade()">Execute Paper Trade</button>
     </div>
   </div>
@@ -1142,11 +1152,15 @@ async function submitImage() {
   if (!selFile) { showAlert('Please select or paste an image first', 'err'); return; }
   const lot = document.getElementById('img-lot').value;
   const trail = document.getElementById('img-trail').value || 0;
+  const owner = document.getElementById('img-owner').value;
+  const strategy = document.getElementById('img-strategy').value;
   
   const fd = new FormData();
   fd.append('file', selFile);
   fd.append('lot_size', lot);
   fd.append('trailing_sl_points', trail);
+  if (owner) fd.append('owner_id', owner);
+  if (strategy) fd.append('strategy', strategy);
 
   document.getElementById('parsed-out').textContent = '⏳ Parsing with OCR...';
   try {
@@ -1158,7 +1172,11 @@ async function submitImage() {
       showAlert('❌ ' + (d.error || 'Parse Error'), 'err');
       document.getElementById('parsed-out').textContent = 'Error: ' + d.error;
     }
-  } catch(e) { showAlert('Network error', 'err'); }
+  } catch(e) { 
+    console.error(e);
+    showAlert('❌ Error: ' + e.message, 'err'); 
+    document.getElementById('parsed-out').textContent = 'Error: ' + e.message;
+  }
 }
 
 async function submitText() {
@@ -1176,7 +1194,10 @@ async function submitText() {
     } else {
       showAlert('❌ ' + (d.error || 'Parse Error'), 'err');
     }
-  } catch(e) { showAlert('Network error: ' + e.message, 'err'); }
+  } catch(e) { 
+    console.error(e);
+    showAlert('❌ Error: ' + e.message, 'err'); 
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -2256,8 +2277,11 @@ function showConfirmModal(sig, source) {
   
   const lotIn = source === 'IMG' ? 'img-lot' : 'txt-lot';
   const stratIn = source === 'IMG' ? 'img-strategy' : ''; 
+  const ownerIn = source === 'IMG' ? 'img-owner' : '';
+
   document.getElementById('conf-lot').value = document.getElementById(lotIn).value;
   if (stratIn) document.getElementById('conf-strat').value = document.getElementById(stratIn).value;
+  if (ownerIn) document.getElementById('conf-owner').value = document.getElementById(ownerIn).value;
   
   document.getElementById('confirm-modal').classList.add('show');
 }
@@ -2277,7 +2301,8 @@ async function executeConfirmed() {
     quantity: +document.getElementById('conf-lot').value * 1, // Will be adjusted by engine if NIFTY etc
     lot_size: 1, // Engine handles lot calculation for known symbols
     entry_type: 'MARKET',
-    strategy: document.getElementById('conf-strat').value || null
+    strategy: document.getElementById('conf-strat').value || null,
+    owner_id: document.getElementById('conf-owner').value ? +document.getElementById('conf-owner').value : null
   };
   
   try {
