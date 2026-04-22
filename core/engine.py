@@ -278,8 +278,13 @@ class PaperTradingEngine:
         self._add_audit_log(trade, f"Trade Closed: {reason}", type="CLOSED", ltp=exit_price)
 
         multiplier = 1 if trade.action == "BUY" else -1
-        trade.gross_pnl = multiplier * (exit_price - trade.entry_price) * trade.quantity
-        trade.net_pnl = trade.gross_pnl  # paper trade: no brokerage
+        # Fallback to entry_price if exit_price is missing
+        exit_val = exit_price if exit_price is not None else trade.entry_price
+        trade.exit_price = exit_val
+        
+        points = multiplier * (exit_val - trade.entry_price)
+        trade.gross_pnl = float(points * trade.quantity)
+        trade.net_pnl = trade.gross_pnl
 
         logger.info(
             f"Trade #{trade.id} CLOSED | {reason} | "

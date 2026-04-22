@@ -688,18 +688,29 @@ async def portfolio_summary(db: Session = Depends(get_db)):
         .all()
     )
 
+    # 1. Repair missing P&L on the fly (for those with dashes)
+    for t in closed:
+        if t.gross_pnl is None:
+            mult = 1 if t.action == "BUY" else -1
+            exit_p = t.exit_price if t.exit_price is not None else t.entry_price
+            t.gross_pnl = float(mult * (exit_p - t.entry_price) * t.quantity)
+            db.add(t)
+    db.commit()
+
     realized_pnl = sum(t.gross_pnl or 0 for t in closed)
     
     now_ist = get_now_ist()
+    # Explicitly calculate today's start in IST
     today_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Safe comparison handling naive/aware datetimes
+    # 2. Strict session filtering (ignore trades from previous days)
     today_closed = []
-    start_naive = today_start.replace(tzinfo=None)
     for t in closed:
         if t.closed_at:
-            t_ref = t.closed_at.replace(tzinfo=None) if t.closed_at.tzinfo else t.closed_at
-            if t_ref >= start_naive:
+            # Ensure both are naive for reliable comparison or both are IST aware
+            t_closed = t.closed_at.replace(tzinfo=None) if t.closed_at.tzinfo else t.closed_at
+            s_start = today_start.replace(tzinfo=None)
+            if t_closed >= s_start:
                 today_closed.append(t)
                 
     today_realized = sum(t.gross_pnl or 0 for t in today_closed)
