@@ -35,7 +35,7 @@ class PaperTradingEngine:
         self._symbol_token_map: dict[str, str] = {}  # symbol → token
         self._token_to_trades: dict[str, list[int]] = defaultdict(list) # token → [trade_id]
         market_feed.add_callback(self._on_tick)
-        self._load_active_trades()
+        # _load_active_trades() should be called from lifespan after connecting to Angel One
 
     def _load_active_trades(self):
         """Reload OPEN and PENDING trades from DB on engine startup"""

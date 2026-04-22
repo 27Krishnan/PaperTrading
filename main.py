@@ -63,6 +63,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"EasyOCR not available: {e}. Image parsing will use text only.")
 
+    # Load engine active trades after connection
+    from core.engine import engine
+    engine._load_active_trades()
+
     # Feed starts lazily on first trade subscription
     # Start LTP poller (REST fallback for PENDING/OPEN trades)
     from core.ltp_poller import ltp_poller
